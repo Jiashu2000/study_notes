@@ -31,7 +31,7 @@
 - additionally, **_replaying the application with changed code means simply replaying the kafka topic_**.
 - by adopting a streaming architecture, we have vastly reduced the number of systems to learn, administer, and create code in. 
 
-```Java
+```Scala
 
 DataStream<LogEvent> stream = env
     // create stream from Kafka
@@ -80,7 +80,7 @@ DataStream<LogEvent> stream = env
 
 - tumbling window of 1 minute collects the values of the last minute, and emits their sum at the end of the minute.
 
-```Java
+```Scala
 stream.timeWindow(Time.minutes(1))
 ```
 
@@ -88,20 +88,20 @@ stream.timeWindow(Time.minutes(1))
 
 - sliding window of 1 minute that slides every half minute counts the values of the last minute, emitting the count every half minute.
 
-```Java
+```Scala
 stream.timeWindow(Time.minutes(1), Time.seconds(30))
 ```
 
 - **_count window_**: we are grouping elements based on their counts instead of timestamps. above tumbling and sliding windows can be defined as
 
-```Java
+```Scala
 stream.countWindow(4)
 stream.countWindow(4, 2)
 ```
 
 - **_session window_**: a session is a period of activity that is preceded and followed by a period of inactivity. session windows in flink are specified using a **_timeout_**. this basically specifies how long we want to wait until we believe that a session has ended.
 
-```Java
+```Scala
 stream.window(SessionWindows.withGap(Time.minutes(5)))
 ```
 
