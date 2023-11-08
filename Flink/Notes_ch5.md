@@ -93,8 +93,73 @@ val count: DataStream[(String, Int)] = stream
 
 - application architecture consisting of a stateful flink application consuming data from a message queue and writing data to an output system used for querying. the callout shows what goes on inside the flink application.
 
-- a partitioned storage system (eg. a message queue such Kafka or MapR streams) serves as the data input. the flink topology consists of three operators: the data source reads data from the input, partitions it by key, and routes records to instances of the stateful operations, which can be a mapWithState as we saw in the previous section, a window aggregation. This operator writes the contents of the state or some derivative results to a sink, which transfers these to a partitioned storage system that serves as output storage. a query service then allows users to query the state.
+- a partitioned storage system (eg. a message queue such Kafka or MapR streams) serves as the data input. the flink topology consists of three operators: the data source reads data from the input, partitions it by key, and routes records to instances of the stateful operations, which can be a mapWithState as we saw in the previous section, a window aggregation. This operator writes the contents of the state or some derivative results to a sink, which transfers these to a **_partitioned storage system that serves as output storage_**. a query service then allows users to query the state.
 
  - how can we transfer the contents of the state to the output with exactly once guarantee? (end-to-end exactly once)
 
-    1. the first way is to buffer all output at the sink and commit this atomically
+    1. the first way is to buffer all output at the sink and commit this atomically when the sink receives a checkpoint record. this method ensures that the output storage system **_only contains results that are guaranteed to be consistent and that duplicates will never be visible_**. for this to work, the output storage system needs to provide the ability to atomically commit.
+
+    2. the second way is to eagerly write data into the output,keeping in mind that some of this data might be dirty and replayed after a failure. if there is a failure, then we need to roll back the output, in addition to the input and the flink job, thus **_overwriting the dirty data and effecitvely deleting dirty data that has already been written to the output._**
+
+    - note that these two alternatives correspond exactly to two well-known levels of isolation in relationship database systems: **_read committed_** and **_read uncommitted_**. read committed guarantees that all reads will read committed data and no intermediate, in-flight, or dirty data. read uncommitted does allow dirty reads; in other words, the queries always see the latest version of data as it is being processed.
+
+- flink together with the corresponding connector can provide exactly once guarantees end-to-end with a variety of isolation levels.
+
+- one reason for the output storage system here is that the state inside flink is not accessible to the outside world in this example. however, if we would be able to query the state in the **_stateful operator_**, we might not even need to have an output system in certain situations where the state contains all the information needed for the query.
+
+- <img src = 'pics/simplified_architecture.png' width = 450 />
+
+- simplified application architecture using flink's **_queryable state_**. for those cases when the state is all the information that is needed, querying the state directly can improve performance.
+
+## Flink Performance: the Yahoo! Streaming Benchmark
+
+#### Original Application with the Yahoo! Streaming Benchmark
+
+- in 2015, Yahoo! benchmarking Apache Storm, Apache Flink, and Apache Spark. the application consumes ad impressions from Apache Kafka, looks up which ad campaign the ad correspond to from redis, and computes the number of ad views in each 10-second window, grouped by campaign. The final results of the 10-second windows are written to Redis for storage, and the statuses of those windows are also written to redis every second in order for uses to able to query them in real time.
+
+- because storm was a stateless stream processor, the flink job was also written in a stateless fasion, with all state being stored in redis.
+
+- <img src = 'pics/benchmarking_1.png' width = 450 />
+
+- <img src = 'pics/benchmarking_1_res.png' width = 450 />
+- x-axis is throughput in thousands of events per second, and the y-axis is the 99% end-to-end latency.
+
+- spark streaming suffered from a throughput-latency tradeoff. as batch increases in size, latency also increases. storm and flink can both sustain low latency as throughput increases.
+
+#### First Modification: Using Flink State
+
+- the original benchmark focused on measuring end-to-end latency at relatively low throughput, and did not focus on implementing these applications in a fault-tolerant manner.
+
+- the first change was to implement the flink application with state fault tolerance.
+
+- <img src = 'pics/benchmarking_2.png' width = 450 />
+
+- with this change, the application can sustain a throughput of 3 million events per second and has exactly once guarantees. the application is now bottlenecked on the connection between the flink cluster and the kafka cluster.
+
+#### Second Modification: Increase Volume Through Improved Data Generator
+
+- the second step in extending the benchmark to test velocity was to scale up the volume of the input stream by writing a data generator that can produce millions of events per second.
+
+- <img src = 'pics/benchmarking_3.png' width = 450 />
+
+#### Third Modification: Dealing with Network Bottleneck
+
+- eliminating the network bottleneck by making the data generator part of the flink program makes the system able to sustain a throughput of 15 million events per second.
+
+- <img src = 'pics/benchmarking_4.png' width = 450 />
+
+#### Fourth Modification: Using MapR Streams
+
+- with MapR, streaming is integrated into the platform, which allows flink to run colocated with the data generator tasks and with all data transport and thus avoiding most of the issue of network connectivity between a kafka cluster and a flink cluster.
+
+#### Fifth Modification: Increased Cardinality and Direct Query
+
+- the final extension of the benchmark was to increase the key cardinality (number of ad campaigns). the original benchmark had only 100 distinct keys, which were flushed every second to redis so that they could be made queryable. when the key cardinality is increased to 1 million, the overall system throughput reduces to 280,000 events per second, as the bottleneck becomes the transfer of data to redis. using an early prototype of flink's queryable state, this bottleneck disappears.
+
+- <img src = "pics/benchmarking_5.png" width = 450 />
+
+-  **_overall, by avoiding streaming bottlenecks and by using flink's stateful stream processing abilities, we were able to get almost a 30x increase in throughput compared to storm while still guaranteeing exactly once processing with high availability._**
+
+- in this chapter, we see how stateful stream processing change the rules of the game. by having checkpointed state inside stream processor, we can get correct results after failures, very high thoughput, and low latency all at the same time.
+
+- another pros of flink is the ability to handle streaming and batch using a single technology, eliminating the need for a dedicated batch layer.
