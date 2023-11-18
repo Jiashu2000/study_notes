@@ -70,6 +70,8 @@
 
 - **_performance impact_**: disk i/o is significant slower than memory access, which can lead to slower job completion time.
 
+- **_out of memory errors_**: If the spilled data is too large and there is not enough disk space available to store it, Spark may throw an out-of-memory error, which can cause the application to fail. For the driver, out-of-memory issues can occur when the application uses large broadcast variables or when large amounts of data are collected by the driver.
+
 - **_resource utilization_**: disk spill can lead to inefficient use of resources. cpu cycles that could be used for computations are instead spent on read/write operations to disk. 
 
 - **_operational complexity_**: managing a spark application that frequently spills to disk can be more complex. you will need to monitor not just cpu and memory usage, but also disk usage, adding another layer to your operational considerations.
@@ -110,7 +112,16 @@
 
 - **_address data skew_**: strategies like salting can help redistribute data more evenly across partitions, reducing the risk of spill.
 
-- **_resizing you cluster_**: adding more memory to you cluster can helper reduce disk spill since execution memory and storage memory have more room to work in. 
+- **_resizing you cluster_**: adding more memory to you cluster can helper reduce disk spill since execution memory and storage memory have more room to work in. The most straightforward solution is to allocate more memory to Spark jobs, which can reduce the chances of the data spill. This can be done by adjusting configuration parameters such as spark.driver.memory, spark.executor.memory. 
+
+- **_Adaptive Query Engine (AQE)_**: 
+    1. Predicate Push-Down: reduce the amount of data that needs to be processed by filtering out unnecessary rows early in the query pipeline before any heavy operations like aggregate and join.
+    2. Dynamic Pruning Optimization: This technique involves dynamically pruning partitions and columns during query execution based on the data distribution and the query plan by pruning unnecessary partitions and columns
+
+- **_Broadcast Join Tuning_**: the data used in the join may be broadcasted to all worker nodes in the cluster if the data is sufficiently small and below a predefined threshold controlled by the spark.sql.autoBroadcastJoinThreshold parameter. To avoid data spill issues, it’s important to only broadcast data that is small enough to fit into the executor’s memory without affecting performance.
+
+- **_Reduce Data Collection to Driver_**: In Spark, the driver is responsible for coordinating the execution of the job and collecting the results. If too much data is collected by the driver, it can overwhelm the driver’s memory and cause the job to fail. One way to minimize the amount of data collected by the driver is to select only the necessary data before collecting it
+
 
 ## Conclusion for Spill
 
@@ -125,3 +136,6 @@
 ## Refereces
 
 - https://towardsdatascience.com/memory-management-in-apache-spark-disk-spill-59385256b68c#:~:text=Large%20Datasets%3A%20When%20the%20data,the%20Execution%20Memory%20is%20insufficient.
+
+- https://medium.com/@chenglong.w1/the-5s-optimization-framework-for-spark-spill-optimization-2584b028c97c
+
