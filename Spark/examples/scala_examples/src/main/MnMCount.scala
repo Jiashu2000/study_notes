@@ -4,7 +4,8 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 
 object MnMCount {
-    def main(args: Array[String]) {
+
+    def main(args: Array[String]): Unit = {
         val spark = SparkSession
         .builder
         .appName("MnMCount")
@@ -37,7 +38,7 @@ object MnMCount {
         .where(col("State") === "CA")
         .groupBy("State", "Color")
         .agg(count("Count").alias("Total"))
-        orderBy(desc("Total"))
+        .orderBy(desc("Total"))
     
     caCountMnMDF.show(10)
 
