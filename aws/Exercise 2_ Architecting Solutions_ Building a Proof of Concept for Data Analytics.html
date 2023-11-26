@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Exercise 2: Architecting Solutions: Building a Proof of Concept for Data Analytics</title>
+  <script src="scripts/clipboard.min.js"></script>
+  <script src="scripts/copybutton.js"></script>
+
+<style>
+    html, body {
+        font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+        margin: 1em;
+    }
+
+    img:not(.clipboard){
+        max-width: 100%;
+        height: auto;
+        width: auto;
+    }
+
+    /* Copy buttons */
+    button.copybtn {
+        webkit-transition: opacity .3s ease-in-out;
+        -o-transition: opacity .3s ease-in-out;
+        transition: opacity .3s ease-in-out;
+        opacity: 0;
+        padding: 2px 6px;
+        position: absolute;
+        right: 4px;
+        top: 4px;
+    }
+    div.sourceCode:hover .copybtn, div.sourceCode .copybtn:focus {
+        opacity: .3;
+    }
+    div.sourceCode .copybtn:hover {
+        opacity: 1;
+    }
+    div.sourceCode {
+        position: relative;
+    }
+    .xmodule_display.xmodule_HtmlBlock ol {
+        padding: 0 0 0 2em !important;
+    }
+    .xmodule_display.xmodule_HtmlBlock ul {
+        padding: 0 0 0 2em !important;
+    }
+
+    code {
+        padding: 2px 4px !important;
+        background-color: #eee !important;
+        border-radius: 4px;
+    }
+    pre code {
+        padding: 9.5px !important;
+        background-color: #f5f5f5 !important;
+        display: block;
+        overflow-x: auto;
+        margin: 0 0 10px;
+        font-size: 13px;
+        line-height: 1.42857143;
+        word-break: break-all;
+        word-wrap: break-word;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        white-space: pre;
+    }
+    pre code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    pre code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    pre code span.at { color: #7d9029; } /* Attribute */
+    pre code span.bn { color: #40a070; } /* BaseN */
+    pre code span.bu { color: #06287e; } /* BuiltIn */
+    pre code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    pre code span.ch { color: #4070a0; } /* Char */
+    pre code span.cn { color: #880000; } /* Constant */
+    pre code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    pre code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    pre code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    pre code span.dt { color: #902000; } /* DataType */
+    pre code span.dv { color: #40a070; } /* DecVal */
+    pre code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    pre code span.ex { color: #06287e; } /* Extension */
+    pre code span.fl { color: #40a070; } /* Float */
+    pre code span.fu { color: #06287e; } /* Function */
+    pre code span.im { } /* Import */
+    pre code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    pre code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    pre code span.op { color: #666666; } /* Operator */
+    pre code span.ot { color: #007020; } /* Other */
+    pre code span.pp { color: #bc7a00; } /* Preprocessor */
+    pre code span.sc { color: #4070a0; } /* SpecialChar */
+    pre code span.ss { color: #bb6688; } /* SpecialString */
+    pre code span.st { color: #4070a0; } /* String */
+    pre code span.va { color: #19177c; } /* Variable */
+    pre code span.vs { color: #4070a0; } /* VerbatimString */
+    pre code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+<body>
+<p><em>[version_1.0]</em></p>
+<div style="background-color: #FFD2D2; padding: 15px; margin-bottom: 25px">
+<h3>
+<span class="fa fa-info-circle"></span> Note
+</h3>
+<p>The exercises in this course will have an associated charge in your AWS account. In this exercise, you create or use the following resources:</p>
+<ul>
+<li>AWS Identity and Access Management (IAM) policy and user (policies and users are AWS account features, offered at no additional charge)</li>
+<li>Amazon Simple Storage Service (Amazon S3) bucket</li>
+<li>AWS Lambda function</li>
+<li>Amazon Kinesis Data Firehose delivery stream</li>
+<li>Amazon API Gateway</li>
+<li>Amazon Athena table</li>
+<li><p>Amazon QuickSight dashboards</p>
+<p><strong>The final task in this exercise includes instructions to delete all the resources that you create.</strong></p></li>
+</ul>
+<p>Familiarize yourself with <strong><a href="https://aws.amazon.com/iam/">IAM</a></strong>, <strong><a href="https://aws.amazon.com/s3/pricing/">Amazon S3 pricing</a></strong>, <strong><a href="https://aws.amazon.com/lambda/pricing/">Lambda pricing</a></strong>, <strong><a href="https://aws.amazon.com/kinesis/data-firehose/pricing/">Kinesis Data Firehose pricing</a></strong>, <strong><a href="https://aws.amazon.com/api-gateway/pricing/">API Gateway pricing</a></strong>, <strong><a href="https://aws.amazon.com/athena/pricing/">Amazon Athena pricing</a></strong>, <strong><a href="https://aws.amazon.com/quicksight/pricing/">Amazon QuickSight pricing</a></strong>, and the <strong><a href="https://aws.amazon.com/free/">AWS Free Tier</a></strong>.</p>
+</div>
+<h1 id="exercise-2-architecting-solutions-building-a-proof-of-concept-for-data-analytics">Exercise 2: Architecting Solutions: Building a Proof of Concept for Data Analytics</h1>
+<p>This exercise provides you with instructions for how to build a data analytics solution.</p>
+<p>This week, you will design an architecture for a customer who needs an analytics solution to ingest, store, and visualize clickstream data. The customer is a restaurant owner who wants to derive insights for all menu items that are ordered in their restaurant. Because the customer has limited staff for running and maintaining this solution, you will build a proof of concept by using managed services on AWS.</p>
+<p>The following architectural diagram shows the flow that you will follow.</p>
+<figure>
+<img src="images/exercise-2.png" alt="Architecture diagram for exercise 2" /><figcaption>Architecture diagram for exercise 2</figcaption>
+</figure>
+<p>In this architecture, you use API Gateway to ingest clickstream data. Then, the Lambda function transforms the data and sends it to Kinesis Data Firehose. The Firehose delivery stream places all files in Amazon S3. Then, you use Amazon Athena to query the files. Finally, you use Amazon QuickSight to transform data into graphics.</p>
+<p>In this exercise, you will learn how to do the following:</p>
+<ul>
+<li>Create IAM policies and roles to follow the best practices of working in the AWS Cloud.</li>
+<li>Create the object storage S3 bucket to store clickstream data.</li>
+<li>Create the Lambda function for Amazon Kinesis Data Firehose to transform data.</li>
+<li>Create a Kinesis Data Firehose delivery stream to deliver real-time streaming data to Amazon S3.</li>
+<li>Create a REST API to insert data.</li>
+<li>Create an Amazon Athena table to view the obtained data.</li>
+<li>Create Amazon QuickSight dashboards to visualize data.</li>
+</ul>
+<blockquote>
+<p><strong>Note</strong>:</p>
+<p>To complete the instructions in this exercise, choose the <em>US East (N. Virginia) us-east-1</em> Region in the menu bar the AWS Management Console.</p>
+<p>The instructions might prompt you to enter your account ID. Your account ID is a 12-digit account number that appears under your account alias in the top-right corner of the AWS Management Console. When you enter your account number (ID), make sure that you remove hyphens (-).</p>
+</blockquote>
+<h2 id="task-1-setup-creating-the-iam-policy-and-role">Task 1: Setup: Creating the IAM policy and role</h2>
+<p>In this task, you create a custom IAM policy and role to grant limited permissions to specific AWS services.</p>
+<h3 id="step-1.1-creating-custom-iam-policies">Step 1.1: Creating custom IAM policies</h3>
+<ol type="1">
+<li><p>Sign in to the AWS Management Console.</p></li>
+<li><p>In the search box, enter <code>IAM</code> and from the list, choose <strong>IAM</strong>.</p></li>
+<li><p>In the navigation pane, choose <strong>Policies</strong> and then choose <strong>Create policy</strong>.</p>
+<p>The <strong>Create policy</strong> page appears.</p></li>
+<li><p>In the <strong>JSON</strong> tab, replace the placeholder code by pasting the following policy:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb1-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb1-2" title="2">    <span class="dt">&quot;Version&quot;</span><span class="fu">:</span> <span class="st">&quot;2012-10-17&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-3" title="3">    <span class="dt">&quot;Statement&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb1-4" title="4">        <span class="fu">{</span></a>
+<a class="sourceLine" id="cb1-5" title="5">            <span class="dt">&quot;Sid&quot;</span><span class="fu">:</span> <span class="st">&quot;VisualEditor0&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-6" title="6">            <span class="dt">&quot;Effect&quot;</span><span class="fu">:</span> <span class="st">&quot;Allow&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-7" title="7">            <span class="dt">&quot;Action&quot;</span><span class="fu">:</span> <span class="st">&quot;firehose:PutRecord&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-8" title="8">            <span class="dt">&quot;Resource&quot;</span><span class="fu">:</span> <span class="st">&quot;*&quot;</span></a>
+<a class="sourceLine" id="cb1-9" title="9">        <span class="fu">}</span></a>
+<a class="sourceLine" id="cb1-10" title="10">    <span class="ot">]</span></a>
+<a class="sourceLine" id="cb1-11" title="11"><span class="fu">}</span></a></code></pre></div></li>
+<li><p>Choose <strong>Next</strong>.</p></li>
+<li><p>For the policy name, enter <code>API-Firehose</code>.</p></li>
+<li><p>Choose <strong>Create policy</strong>.</p>
+<p>This IAM policy grants permissions to write records to Amazon Kinesis Data Firehose delivery stream.</p></li>
+</ol>
+<h3 id="step-1.2-creating-an-iam-role-and-attaching-a-policy-to-it">Step 1.2: Creating an IAM role and attaching a policy to it</h3>
+<p>In this step, you create an IAM role that enables API Gateway to send streaming data to Amazon Kinesis Data Firehose. You then add the API-Firehose policy that you created to the role.</p>
+<ol type="1">
+<li><p>In the navigation pane of the IAM dashboard, choose <strong>Roles</strong> and then choose <strong>Create role</strong>.</p></li>
+<li><p>For <strong>Trusted entity type</strong>, select <strong>AWS service</strong></p></li>
+<li><p>In the <strong>Use case</strong> section choose <strong>API Gateway</strong>.</p></li>
+<li><p>Choose <strong>Next</strong> and then choose <strong>Next</strong> again.</p></li>
+<li><p>For <strong>Role name</strong>, enter <code>APIGateway-Firehose</code>.</p></li>
+<li><p>Choose <strong>Create role</strong>.</p></li>
+<li><p>From the roles list, choose the <strong>APIGateway-Firehose</strong> role.</p></li>
+<li><p>In the <strong>Permissions policies</strong> section, on the <strong>Add permissions</strong> menu, choose <strong>Attach policies</strong>.</p></li>
+<li><p>From the policies list, select <strong>API-Firehose</strong> and choose <strong>Add permissions</strong>.</p></li>
+<li><p>In the <strong>Summary</strong> section, copy the <strong>APIGateway-Firehose</strong> ARN and save it for your records. Your APIGateway-Firehose ARN might look similar to the following: <code>arn:aws:iam::&lt;account ID&gt;:role/APIGateway-Firehose</code>.</p></li>
+</ol>
+<h2 id="task-2-creating-an-s3-bucket">Task 2: Creating an S3 bucket</h2>
+<p>In this task, you create an object storage bucket in Amazon S3 to store streaming data in the AWS Cloud.</p>
+<ol type="1">
+<li><p>In the AWS Management Console search box, enter <code>S3</code> and open the service by choosing <strong>S3</strong>.</p></li>
+<li><p>Choose <strong>Create bucket</strong>.</p></li>
+<li><p>For <strong>Bucket name</strong>, enter a unique name.</p>
+<p><strong>Note</strong>: An S3 bucket name must be globally unique. You may name your bucket similar to the following example: <code>architecting-week2-&lt;your initials&gt;</code>. Replace <code>&lt;your initals&gt;</code> with your own value. Make sure that you also delete the angle brackets (&lt;&gt;). For example: <code>architecting-week2-mw</code>.</p></li>
+<li><p>Make sure that <strong>AWS Region</strong> is set to <strong>US East (N. Virginia) us-east-1</strong>.</p></li>
+<li><p>At the bottom of the page, choose <strong>Create bucket</strong>.</p></li>
+<li><p>Open the bucket details by choosing the name of the bucket that you just created.</p></li>
+<li><p>Choose the <strong>Properties</strong> tab.</p></li>
+<li><p>In the <strong>Bucket overview</strong> section, copy your bucket’s Amazon Resource Name (ARN) and save it for your records. The ARN of your bucket may look similar to the following: <code>arn:aws:s3:::DOC-EXAMPLE-BUCKET</code>.</p></li>
+</ol>
+<h2 id="task-3-creating-a-lambda-function">Task 3: Creating a Lambda function</h2>
+<p>In this task, you create a Lambda function that transforms data before Amazon Kinesis Data Firehose ingests it into the object storage bucket.</p>
+<ol type="1">
+<li><p>In the AWS Management Console, search for and open the <strong>Lambda</strong> service.</p></li>
+<li><p>Choose <strong>Create a function</strong>.</p></li>
+<li><p>Select the <strong>Use a blueprint</strong> card.</p></li>
+<li><p>In the filter box of the <strong>Blueprints</strong> section, enter <code>Kinesis</code>.</p></li>
+<li><p>In the list of results, you may see two blueprints called <strong>Process records sent to a Kinesis Firehose stream</strong> for Node.js and Python. Select the Python 3.8 blueprint called <strong>Process records sent to a Kinesis Firehose stream</strong> and choose <strong>Configure</strong>.</p></li>
+<li><p>For <strong>Function name</strong>, enter <code>transform-data</code>.</p></li>
+<li><p>Keep all the other default settings and choose <strong>Create function</strong>.</p></li>
+<li><p>In the <strong>Code</strong> tab, replace the default code with the following:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb2-1" title="1"><span class="im">import</span> json</a>
+<a class="sourceLine" id="cb2-2" title="2"><span class="im">import</span> boto3</a>
+<a class="sourceLine" id="cb2-3" title="3"><span class="im">import</span> base64</a>
+<a class="sourceLine" id="cb2-4" title="4"></a>
+<a class="sourceLine" id="cb2-5" title="5">output <span class="op">=</span> []</a>
+<a class="sourceLine" id="cb2-6" title="6"></a>
+<a class="sourceLine" id="cb2-7" title="7"><span class="kw">def</span> lambda_handler(event, context):</a>
+<a class="sourceLine" id="cb2-8" title="8"></a>
+<a class="sourceLine" id="cb2-9" title="9">    <span class="cf">for</span> record <span class="kw">in</span> event[<span class="st">&#39;records&#39;</span>]:</a>
+<a class="sourceLine" id="cb2-10" title="10">        payload <span class="op">=</span> base64.b64decode(record[<span class="st">&#39;data&#39;</span>]).decode(<span class="st">&#39;utf-8&#39;</span>)</a>
+<a class="sourceLine" id="cb2-11" title="11"></a>
+<a class="sourceLine" id="cb2-12" title="12">        row_w_newline <span class="op">=</span> payload <span class="op">+</span> <span class="st">&quot;</span><span class="ch">\n</span><span class="st">&quot;</span></a>
+<a class="sourceLine" id="cb2-13" title="13">        row_w_newline <span class="op">=</span> base64.b64encode(row_w_newline.encode(<span class="st">&#39;utf-8&#39;</span>))</a>
+<a class="sourceLine" id="cb2-14" title="14"></a>
+<a class="sourceLine" id="cb2-15" title="15">        output_record <span class="op">=</span> {</a>
+<a class="sourceLine" id="cb2-16" title="16">            <span class="st">&#39;recordId&#39;</span>: record[<span class="st">&#39;recordId&#39;</span>],</a>
+<a class="sourceLine" id="cb2-17" title="17">            <span class="st">&#39;result&#39;</span>: <span class="st">&#39;Ok&#39;</span>,</a>
+<a class="sourceLine" id="cb2-18" title="18">            <span class="st">&#39;data&#39;</span>: row_w_newline</a>
+<a class="sourceLine" id="cb2-19" title="19">        }</a>
+<a class="sourceLine" id="cb2-20" title="20">        output.append(output_record)</a>
+<a class="sourceLine" id="cb2-21" title="21"></a>
+<a class="sourceLine" id="cb2-22" title="22">    <span class="cf">return</span> {<span class="st">&#39;records&#39;</span>: output}</a></code></pre></div></li>
+<li><p>Choose <strong>Deploy</strong>.</p></li>
+<li><p>Choose the <strong>Configuration</strong> tab.</p></li>
+<li><p>In the <strong>General configuration</strong> section, choose <strong>Edit</strong> and change the <strong>Timeout</strong> setting to <code>10</code> seconds.</p></li>
+<li><p>Choose <strong>Save</strong>.</p></li>
+<li><p>In the <strong>Function overview</strong> section, copy the function ARN and save it for your records.</p>
+<p>Your ARN might look similar to the following example: <code>arn:aws:lambda:us-east-1:&lt;account ID&gt;:function:transform-data</code>.</p></li>
+</ol>
+<h2 id="task-4-creating-a-kinesis-data-firehose-delivery-stream">Task 4: Creating a Kinesis Data Firehose delivery stream</h2>
+<p>In this task, you complete two steps. First, you create a Kinesis Data Firehose delivery stream to ingest streaming data. Then, you copy the ARN of the delivery stream’s IAM role. Later in the exercise, you use this ARN to connect the delivery stream to your storage bucket.</p>
+<h3 id="step-4.1-creating-the-kinesis-data-firehose-delivery-stream">Step 4.1: Creating the Kinesis Data Firehose delivery stream</h3>
+<ol type="1">
+<li><p>In AWS Management Console, search for and open the <strong>Kinesis</strong> service.</p></li>
+<li><p>On the <strong>Get started</strong> card, select <strong>Kinesis Data Firehose</strong> and then choose <strong>Create delivery stream</strong>.</p></li>
+<li>For <strong>Source and destination</strong>, configure these settings:
+<ul>
+<li><strong>Source</strong>: <em>Direct PUT</em></li>
+<li><strong>Destination</strong>: <em>Amazon S3</em></li>
+</ul></li>
+<li>For <strong>Transform and convert records - optional</strong>, configure these settings:
+<ul>
+<li><strong>Enable data transformation</strong>: <em>Enabled</em></li>
+<li><strong>AWS Lambda function</strong>: ARN of the function that you created in Lambda
+<ul>
+<li><strong>Note</strong>: For example, the ARN might look like the following: <code>arn:aws:lambda:us-east-1:&lt;account ID&gt;:function:transform-data</code></li>
+</ul></li>
+<li><strong>Version and alias</strong>: <em>$LATEST</em></li>
+</ul></li>
+<li><p>For <strong>Destination settings</strong>, choose <strong>Browse</strong>.</p></li>
+<li><p>Select the S3 bucket that you created for this exercise and then select <strong>Choose</strong>.</p></li>
+<li><p>At the bottom of the page, choose <strong>Create delivery stream</strong>.</p></li>
+</ol>
+<p>It may take up to 5 minutes to create the Kinesis Data Firehose delivery stream.</p>
+<h3 id="step-4.2-copying-the-arn-of-the-iam-role">Step 4.2: Copying the ARN of the IAM role</h3>
+<ol type="1">
+<li><p>If needed, open the details page for the delivery stream that you created.</p></li>
+<li><p>Choose the <strong>Configuration</strong> tab.</p></li>
+<li><p>In the <strong>Service access</strong> section, choose the IAM role.</p>
+<p>The role opens in a new IAM window.</p></li>
+<li><p>Copy the ARN of the IAM role and save it. Your ARN role might look similar to the following: <code>arn:aws:iam::&lt;account ID&gt;:role/service-role/KinesisFirehoseServiceRole-PUT-S3-7HMmt-us-east-1-1664893091685</code>.</p>
+<p>You will need this ARN in the next task.</p></li>
+</ol>
+<h2 id="task-5-adding-the-firehose-delivery-stream-arn-to-the-s3-bucket">Task 5: Adding the Firehose delivery stream ARN to the S3 bucket</h2>
+<p>In this task, you edit permissions for the S3 bucket so it can store data that’s ingested by Kinesis Data Firehose.</p>
+<ol type="1">
+<li><p>Open the Amazon S3 console and open the details page for the bucket you created in this exercise.</p></li>
+<li><p>Choose the <strong>Permissions</strong> tab.</p></li>
+<li><p>In the <strong>Bucket policy</strong> section, choose <strong>Edit</strong> and paste the following script:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb3-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb3-2" title="2">    <span class="dt">&quot;Version&quot;</span><span class="fu">:</span> <span class="st">&quot;2012-10-17&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-3" title="3">    <span class="dt">&quot;Id&quot;</span><span class="fu">:</span> <span class="st">&quot;PolicyID&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-4" title="4">    <span class="dt">&quot;Statement&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb3-5" title="5">        <span class="fu">{</span></a>
+<a class="sourceLine" id="cb3-6" title="6">            <span class="dt">&quot;Sid&quot;</span><span class="fu">:</span> <span class="st">&quot;StmtID&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-7" title="7">            <span class="dt">&quot;Effect&quot;</span><span class="fu">:</span> <span class="st">&quot;Allow&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-8" title="8">            <span class="dt">&quot;Principal&quot;</span><span class="fu">:</span> <span class="fu">{</span></a>
+<a class="sourceLine" id="cb3-9" title="9">                <span class="dt">&quot;AWS&quot;</span><span class="fu">:</span> <span class="st">&quot;&lt;Enter the ARN for the Kinesis Firehose IAM role&gt;&quot;</span></a>
+<a class="sourceLine" id="cb3-10" title="10">            <span class="fu">},</span></a>
+<a class="sourceLine" id="cb3-11" title="11">            <span class="dt">&quot;Action&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb3-12" title="12">                <span class="st">&quot;s3:AbortMultipartUpload&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-13" title="13">                <span class="st">&quot;s3:GetBucketLocation&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-14" title="14">                <span class="st">&quot;s3:GetObject&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-15" title="15">                <span class="st">&quot;s3:ListBucket&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-16" title="16">                <span class="st">&quot;s3:ListBucketMultipartUploads&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-17" title="17">                <span class="st">&quot;s3:PutObject&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-18" title="18">                <span class="st">&quot;s3:PutObjectAcl&quot;</span></a>
+<a class="sourceLine" id="cb3-19" title="19">            <span class="ot">]</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-20" title="20">            <span class="dt">&quot;Resource&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb3-21" title="21">                <span class="st">&quot;&lt;Enter the ARN of the S3 bucket&gt;&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-22" title="22">                <span class="st">&quot;&lt;Enter the ARN of the S3 bucket&gt;/*&quot;</span></a>
+<a class="sourceLine" id="cb3-23" title="23">            <span class="ot">]</span></a>
+<a class="sourceLine" id="cb3-24" title="24">        <span class="fu">}</span></a>
+<a class="sourceLine" id="cb3-25" title="25">    <span class="ot">]</span></a>
+<a class="sourceLine" id="cb3-26" title="26"><span class="fu">}</span></a></code></pre></div></li>
+<li>In the script code, replace the following placeholders:
+<ul>
+<li><p><strong>AWS</strong>: Paste the ARN of the Kinesis Data Firehose IAM role. You saved this ARN in the last step of the previous task. For example:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb4-1" title="1"><span class="er">&quot;Principal&quot;:</span> <span class="fu">{</span></a>
+<a class="sourceLine" id="cb4-2" title="2">    <span class="dt">&quot;AWS&quot;</span><span class="fu">:</span> <span class="st">&quot;arn:aws:iam::&lt;account ID&gt;:role/service-role/KinesisFirehoseServiceRole-PUT-S3-7HMmt-us-east-1-1664893091685&quot;</span></a>
+<a class="sourceLine" id="cb4-3" title="3"><span class="fu">}</span><span class="er">,</span></a></code></pre></div></li>
+<li><p><strong>Resource</strong>: Paste the ARN of the S3 bucket for both placeholders. For example:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb5-1" title="1"><span class="er">&quot;Resource&quot;:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb5-2" title="2">    <span class="st">&quot;arn:aws:s3:::DOC-EXAMPLE-BUCKET&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb5-3" title="3">    <span class="st">&quot;arn:aws:s3:::DOC-EXAMPLE-BUCKET/*&quot;</span></a>
+<a class="sourceLine" id="cb5-4" title="4"><span class="ot">]</span></a></code></pre></div></li>
+</ul></li>
+<li><p>Save your changes.</p></li>
+</ol>
+<h2 id="task-6-creating-an-api-in-api-gateway">Task 6: Creating an API in API Gateway</h2>
+<p>In this task, you create a REST API in API Gateway. The API serves as a communication gateway between your application and AWS services. In this exercise, you use API Gateway to insert mock data.</p>
+<ol type="1">
+<li><p>Open the API Gateway service console.</p></li>
+<li>On the <strong>REST API</strong> card with an open authentication, choose <strong>Build</strong> and configure these settings:
+<ul>
+<li><strong>Choose the protocol</strong>: <em>REST</em></li>
+<li><strong>Create new API</strong>: <em>New API</em></li>
+<li><strong>API name</strong>: <code>clickstream-ingest-poc</code></li>
+<li><strong>Endpoint Type</strong>: <em>Regional</em></li>
+</ul></li>
+<li><p>Choose <strong>Create API</strong>.</p></li>
+<li><p>In the <strong>Resources</strong> pane, on the <strong>Actions</strong> menu, choose <strong>Create Resource</strong>.</p></li>
+<li><p>On the <strong>New Child Resource</strong> page, name the resource <code>poc</code> and choose <strong>Create Resource</strong>.</p></li>
+<li><p>On the <strong>Actions</strong> menu, choose <strong>Create Method</strong>.</p></li>
+<li><p>On the method menu (down arrow), choose <strong>POST</strong>. Choose the checkmark to save your changes.</p></li>
+<li>On the <strong>POST - Setup</strong> page, configure the following settings:
+<ul>
+<li><strong>Integration type</strong>: <em>AWS Service</em></li>
+<li><strong>AWS Region</strong>: <em>us-east-1</em></li>
+<li><strong>AWS Service</strong>: <em>Firehose</em></li>
+<li><strong>AWS Subdomain</strong>: Keep empty</li>
+<li><strong>HTTP method</strong>: <em>POST</em></li>
+<li><strong>Action Type</strong>: <em>Use action name</em></li>
+<li><strong>Action</strong>: <code>PutRecord</code></li>
+<li><strong>Execution role</strong>: Paste the ARN of the <em>APIGateway-Firehose</em> role that you created in task 1
+<ul>
+<li><strong>Note</strong>: For example, the ARN might look like the following: <code>arn:aws:iam::&lt;account ID&gt;:role/APIGateway-Firehose</code></li>
+</ul></li>
+<li><strong>Content Handling</strong>: <em>Passthrough</em></li>
+<li><strong>Use Default Timeout</strong>: Keep selected</li>
+</ul></li>
+<li><p>Save your changes.</p></li>
+<li><p>Choose the <strong>Integration Request</strong> card.</p></li>
+<li><p>Expand <strong>Mapping Templates</strong> and for <strong>Request body passthrough</strong>, choose <strong>When there are no templates defined (recommended)</strong>.</p></li>
+<li><p>Choose <strong>Add mapping template</strong>.</p></li>
+<li><p>For <strong>Content-Type</strong>, enter <code>application/json</code> and save your changes by choosing the check mark.</p></li>
+<li><p>In the <strong>Generate template</strong> box, paste the following script:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb6-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb6-2" title="2">    <span class="dt">&quot;DeliveryStreamName&quot;</span><span class="fu">:</span> <span class="st">&quot;&lt;Enter the name of your delivery stream&gt;&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb6-3" title="3">    <span class="dt">&quot;Record&quot;</span><span class="fu">:</span> <span class="fu">{</span></a>
+<a class="sourceLine" id="cb6-4" title="4">        <span class="dt">&quot;Data&quot;</span><span class="fu">:</span> <span class="st">&quot;$util.base64Encode($util.escapeJavaScript($input.json(&#39;$&#39;)).replace(&#39;\&#39;, &#39;&#39;))&quot;</span></a>
+<a class="sourceLine" id="cb6-5" title="5">    <span class="fu">}</span></a>
+<a class="sourceLine" id="cb6-6" title="6"><span class="fu">}</span></a></code></pre></div></li>
+<li><p>In the script code, replace the <strong>DeliveryStreamName</strong> placeholder value with the name of the Kinesis Data Firehose delivery stream that you created.</p>
+<p><strong>Note</strong>: You can find the name of the Firehose delivery stream in the Amazon Kinesis console, in the <strong>Delivery streams</strong> tab. For example: <code>"DeliveryStreamName": "PUT-S3-AAaAA"</code></p></li>
+<li><p>Choose <strong>Save</strong>.</p></li>
+<li><p>Go back to the <strong>/poc - POST - Method Execution</strong> page.</p></li>
+<li><p>Choose <strong>Test</strong>.</p>
+<p>For the test, you will send several discrete JSON payloads to the API. These payloads simulate how an application frontend sends small bits of data each time a person looks through an item in the menu.</p></li>
+<li><p>In the <strong>Request Body</strong> box, paste the following JSON:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb7-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb7-2" title="2"><span class="dt">&quot;element_clicked&quot;</span><span class="fu">:</span><span class="st">&quot;entree_1&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb7-3" title="3"><span class="dt">&quot;time_spent&quot;</span><span class="fu">:</span><span class="dv">67</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb7-4" title="4"><span class="dt">&quot;source_menu&quot;</span><span class="fu">:</span><span class="st">&quot;restaurant_name&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb7-5" title="5"><span class="dt">&quot;created_at&quot;</span><span class="fu">:</span><span class="st">&quot;2022–09–11 23:00:00&quot;</span></a>
+<a class="sourceLine" id="cb7-6" title="6"><span class="fu">}</span></a></code></pre></div></li>
+<li><p>Choose <strong>Test</strong>.</p></li>
+<li><p>Review the request logs (on the right side of the window) and confirm that you see the following messages: “Successfully completed execution” and “Method completed with status: 200”.</p>
+<p>These messages indicate that API Gateway processed the data successfully.</p></li>
+<li><p>Replace the previous JSON by pasting the following JSON payload and then choose <strong>Test</strong>. Again, confirm that API Gateway processed the data successfully.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb8-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb8-2" title="2"><span class="dt">&quot;element_clicked&quot;</span><span class="fu">:</span><span class="st">&quot;entree_1&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb8-3" title="3"><span class="dt">&quot;time_spent&quot;</span><span class="fu">:</span><span class="dv">12</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb8-4" title="4"><span class="dt">&quot;source_menu&quot;</span><span class="fu">:</span><span class="st">&quot;restaurant_name&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb8-5" title="5"><span class="dt">&quot;created_at&quot;</span><span class="fu">:</span><span class="st">&quot;2022–09–11 23:00:00&quot;</span></a>
+<a class="sourceLine" id="cb8-6" title="6"><span class="fu">}</span></a></code></pre></div></li>
+<li><p>Repeat the steps for pasting the code, testing the API, and confirming success for each of the following JSON payloads:</p>
+<p><strong>Entree 4</strong></p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb9-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb9-2" title="2"><span class="dt">&quot;element_clicked&quot;</span><span class="fu">:</span><span class="st">&quot;entree_4&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb9-3" title="3"><span class="dt">&quot;time_spent&quot;</span><span class="fu">:</span><span class="dv">32</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb9-4" title="4"><span class="dt">&quot;source_menu&quot;</span><span class="fu">:</span><span class="st">&quot;restaurant_name&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb9-5" title="5"><span class="dt">&quot;createdAt&quot;</span><span class="fu">:</span><span class="st">&quot;2022–09–11 23:00:00&quot;</span></a>
+<a class="sourceLine" id="cb9-6" title="6"><span class="fu">}</span></a></code></pre></div>
+<p><strong>Drink 1</strong></p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb10-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb10-2" title="2"><span class="dt">&quot;element_clicked&quot;</span><span class="fu">:</span><span class="st">&quot;drink_1&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb10-3" title="3"><span class="dt">&quot;time_spent&quot;</span><span class="fu">:</span><span class="dv">15</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb10-4" title="4"><span class="dt">&quot;source_menu&quot;</span><span class="fu">:</span><span class="st">&quot;restaurant_name&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb10-5" title="5"><span class="dt">&quot;created_at&quot;</span><span class="fu">:</span><span class="st">&quot;2022–09–11 23:00:00&quot;</span></a>
+<a class="sourceLine" id="cb10-6" title="6"><span class="fu">}</span></a></code></pre></div>
+<p><strong>Drink 3</strong></p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb11-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb11-2" title="2"><span class="dt">&quot;element_clicked&quot;</span><span class="fu">:</span><span class="st">&quot;drink_3&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb11-3" title="3"><span class="dt">&quot;time_spent&quot;</span><span class="fu">:</span><span class="dv">14</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb11-4" title="4"><span class="dt">&quot;source_menu&quot;</span><span class="fu">:</span><span class="st">&quot;restaurant_name&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb11-5" title="5"><span class="dt">&quot;created_at&quot;</span><span class="fu">:</span><span class="st">&quot;2022–09–11 23:00:00&quot;</span></a>
+<a class="sourceLine" id="cb11-6" title="6"><span class="fu">}</span></a></code></pre></div></li>
+</ol>
+<p>In the next task, you will verify that the solution is working by creating an Amazon Athena table that displays ingested entries.</p>
+<h2 id="task-7-creating-an-athena-table">Task 7: Creating an Athena table</h2>
+<p>In this task, you create a table in Athena. You also run a Structured Query Language (SQL) query to view the payloads that you inserted with the REST API.</p>
+<ol type="1">
+<li><p>Open the Athena service console.</p></li>
+<li><p>At the left choose <strong>Query editor</strong>.</p></li>
+<li><p>Choose the <strong>Settings</strong> tab and then choose <strong>Manage</strong>.</p></li>
+<li><p>Choose <strong>Browse S3</strong> and choose the S3 bucket that you created in this exercise.</p></li>
+<li><p>Select <strong>Choose</strong> and then <strong>Save</strong>.</p></li>
+<li><p>Choose the <strong>Editor</strong> tab.</p></li>
+<li><p>In the <strong>Tables and views</strong> section, on the <strong>Create</strong> menu, choose <strong>CREATE TABLE AS SELECT</strong>.</p></li>
+<li><p>In the <strong>Query</strong> editor, replace the placeholder code with the following script:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb12-1" title="1"><span class="er">CREATE</span> <span class="er">EXTERNAL</span> <span class="er">TABLE</span> <span class="er">my_ingested_data</span> <span class="er">(</span></a>
+<a class="sourceLine" id="cb12-2" title="2"><span class="er">element_clicked</span> <span class="er">STRING,</span></a>
+<a class="sourceLine" id="cb12-3" title="3"><span class="er">time_spent</span> <span class="er">INT,</span></a>
+<a class="sourceLine" id="cb12-4" title="4"><span class="er">source_menu</span> <span class="er">STRING,</span></a>
+<a class="sourceLine" id="cb12-5" title="5"><span class="er">created_at</span> <span class="er">STRING</span></a>
+<a class="sourceLine" id="cb12-6" title="6"><span class="er">)</span></a>
+<a class="sourceLine" id="cb12-7" title="7"><span class="er">PARTITIONED</span> <span class="er">BY</span> <span class="er">(</span></a>
+<a class="sourceLine" id="cb12-8" title="8"><span class="er">datehour</span> <span class="er">STRING</span></a>
+<a class="sourceLine" id="cb12-9" title="9"><span class="er">)</span></a>
+<a class="sourceLine" id="cb12-10" title="10"><span class="er">ROW</span> <span class="er">FORMAT</span> <span class="er">SERDE</span> <span class="er">&#39;org.openx.data.jsonserde.JsonSerDe&#39;</span></a>
+<a class="sourceLine" id="cb12-11" title="11"><span class="er">with</span> <span class="er">serdeproperties</span> <span class="er">(</span> <span class="er">&#39;paths&#39;=&#39;element_clicked,</span> <span class="er">time_spent,</span> <span class="er">source_menu,</span> <span class="er">created_at&#39;</span> <span class="er">)</span></a>
+<a class="sourceLine" id="cb12-12" title="12"><span class="er">LOCATION</span> <span class="er">&quot;s3://&lt;Enter</span> <span class="er">your</span> <span class="er">Amazon</span> <span class="er">S3</span> <span class="er">bucket</span> <span class="er">name&gt;/&quot;</span></a>
+<a class="sourceLine" id="cb12-13" title="13"><span class="er">TBLPROPERTIES</span> <span class="er">(</span></a>
+<a class="sourceLine" id="cb12-14" title="14"><span class="er">&quot;projection.enabled&quot;</span> <span class="er">=</span> <span class="er">&quot;true&quot;,</span></a>
+<a class="sourceLine" id="cb12-15" title="15"><span class="er">&quot;projection.datehour.type&quot;</span> <span class="er">=</span> <span class="er">&quot;date&quot;,</span></a>
+<a class="sourceLine" id="cb12-16" title="16"><span class="er">&quot;projection.datehour.format&quot;</span> <span class="er">=</span> <span class="er">&quot;yyyy/MM/dd/HH&quot;,</span></a>
+<a class="sourceLine" id="cb12-17" title="17"><span class="er">&quot;projection.datehour.range&quot;</span> <span class="er">=</span> <span class="er">&quot;2021/01/01/00,NOW&quot;,</span></a>
+<a class="sourceLine" id="cb12-18" title="18"><span class="er">&quot;projection.datehour.interval&quot;</span> <span class="er">=</span> <span class="er">&quot;1&quot;,</span></a>
+<a class="sourceLine" id="cb12-19" title="19"><span class="er">&quot;projection.datehour.interval.unit&quot;</span> <span class="er">=</span> <span class="er">&quot;HOURS&quot;,</span></a>
+<a class="sourceLine" id="cb12-20" title="20"><span class="er">&quot;storage.location.template&quot;</span> <span class="er">=</span> <span class="er">&quot;s3://&lt;Enter</span> <span class="er">your</span> <span class="er">Amazon</span> <span class="er">S3</span> <span class="er">bucket</span> <span class="er">name&gt;/$</span><span class="fu">{</span><span class="er">datehour</span><span class="fu">}</span><span class="er">/&quot;</span></a>
+<a class="sourceLine" id="cb12-21" title="21"><span class="er">)</span></a></code></pre></div></li>
+<li>In the script you pasted, replace the following placeholder values:
+<ul>
+<li><strong>LOCATION</strong>: Replace <code>&lt;Enter your Amazon S3 bucket name&gt;</code> with the name of your bucket
+<ul>
+<li><strong>Note</strong>: Make sure that you have <code>s3://</code> before the bucket name and a slash (/) at the end (for example: <code>"s3://DOC-EXAMPLE-BUCKET/"</code>)</li>
+</ul></li>
+<li><strong>storage.location.template</strong>: Replace <code>&lt;Enter your Amazon S3 bucket name&gt;</code> with the name of your bucket
+<ul>
+<li><strong>Note</strong>: For example: <code>"s3://DOC-EXAMPLE-BUCKET/${datehour}/"</code></li>
+</ul></li>
+</ul></li>
+<li><p>Choose <strong>Run</strong>.</p>
+<p>The query creates the <strong>my_ingested_data</strong> table.</p></li>
+<li><p>Create a new query by choosing the plus sign (+) (at the top-right of the query editor).</p></li>
+<li><p>In the query editor, paste <code>SELECT * FROM my_ingested_data;</code> and choose <strong>Run</strong>.</p>
+<p>The query should produce results with the entries that you ran in API Gateway.</p></li>
+</ol>
+<h2 id="task-8-visualizing-data-with-quicksight">Task 8: Visualizing data with QuickSight</h2>
+<p>After the clickstream data is processed successfully, you can use QuickSight to visualize data. With QuickSight, you can gain better insights into your streaming data by analyzing it and publishing data dashboards.</p>
+<p>The instructions for how to visualize data in QuickSight might differ, depending if you are a new user or an existing user.</p>
+<blockquote>
+<p><strong>Note</strong>: Amazon QuickSight is a subscription service. If you need to delete your QuickSight account after you complete this exercise, follow the instructions in the final task.</p>
+</blockquote>
+<h3 id="for-new-amazon-quicksight-users">For new Amazon QuickSight users</h3>
+<ol type="1">
+<li><p>Open the QuickSight service console.</p></li>
+<li><p>Choose <strong>Sign up for QuickSight</strong>. Choose <strong>Enterprise</strong> and <strong>Continue</strong>.</p></li>
+<li><p>Set up an account and choose <strong>Finish</strong>.</p></li>
+<li><p>In the upper-right corner, open the user menu by choosing the user icon and then choose <strong>Manage QuickSight</strong>.</p></li>
+<li><p>In the navigation pane, choose <strong>Security &amp; permissions</strong> and in <strong>QuickSight access to AWS services,</strong> choose <strong>Manage</strong>.</p></li>
+<li><p>Under <strong>Amazon S3</strong>, choose <strong>Select S3 buckets</strong>.</p></li>
+<li><p>Select the bucket that you created in this exercise, and also select <strong>Write permission for Athena Workgroup</strong>.</p></li>
+<li><p>Choose <strong>Finish</strong> and save your changes.</p></li>
+<li><p>Return to the QuickSight console.</p></li>
+<li><p>In the <strong>Analyses</strong> tab, choose <strong>New analysis</strong>.</p></li>
+<li><p>Choose <strong>New dataset</strong>.</p></li>
+<li>Choose <strong>Athena</strong> and configure the following settings:
+<ul>
+<li><strong>Name datasource</strong>: <code>poc-clickstream</code></li>
+<li><strong>Select workgroup</strong>: <em>[primary]</em></li>
+</ul></li>
+<li><p>Choose <strong>Create data source</strong>.</p></li>
+<li><p>In the <strong>Choose your table</strong> dialog box, select the <strong>my_ingested_data</strong> table, and choose <strong>Select</strong>.</p></li>
+<li><p>In the <strong>Finish dataset creation</strong> dialog box, make sure that <strong>Import to SPICE for quicker analytics</strong> is selected, and choose <strong>Visualize</strong>.</p></li>
+<li><p>View your visualization results by selecting field items and visual types for the diagram.</p>
+<p>For more information about how to visualize data in Amazon QuickSight, see <a href="https://docs.aws.amazon.com/quicksight/latest/user/example-create-an-analysis.html">Tutorial: Create an AmazonQuickSight analysis</a>.</p></li>
+</ol>
+<h3 id="for-existing-amazon-quicksight-users">For existing Amazon QuickSight users</h3>
+<ol type="1">
+<li><p>Open the QuickSight service console.</p></li>
+<li><p>In the upper-right corner, open the user menu by choosing the user icon and then choose <strong>Manage QuickSight</strong>.</p></li>
+<li><p>In the navigation pane, choose <strong>Security &amp; permissions</strong> and in <strong>QuickSight access to AWS services,</strong> choose <strong>Manage</strong>.</p></li>
+<li><p>Under <strong>Amazon S3</strong>, choose <strong>Select S3 buckets</strong>.</p></li>
+<li><p>Select the bucket that you created in this exercise, and also select <strong>Write permission for Athena Workgroup</strong>.</p></li>
+<li><p>Choose <strong>Finish</strong> and save your changes.</p></li>
+<li><p>Return to the QuickSight console by choosing the QuickSight icon (in the upper-left area of the webpage).</p></li>
+<li><p>Choose <strong>New analysis</strong>.</p></li>
+<li><p>Choose <strong>New dataset</strong>.</p></li>
+<li>Choose <strong>Athena</strong> and configure these settings:
+<ul>
+<li><strong>Data source name</strong>: <code>poc-clickstream</code></li>
+<li><strong>Athena workgroup</strong>: <em>[primary]</em></li>
+</ul></li>
+<li><p>Choose <strong>Create data source</strong>.</p></li>
+<li><p>In the <strong>Choose your table</strong> dialog box, select <strong>my_ingested_data</strong> and choose <strong>Select</strong>.</p></li>
+<li><p>In the <strong>Finish dataset creation</strong> dialog box, keep <strong>Import to SPICE for quicker analytics</strong> selected and choose <strong>Visualize</strong>.</p></li>
+<li><p>View your visualization results by selecting field items and visual types for the diagram.</p>
+<p>For more information about how to visualize data in Amazon QuickSight, see <a href="https://docs.aws.amazon.com/quicksight/latest/user/example-create-an-analysis.html">Tutorial: Create an AmazonQuickSight analysis</a>.</p></li>
+</ol>
+<h2 id="task-9-deleting-all-resources">Task 9: Deleting all resources</h2>
+<p>To avoid incurring costs, we recommend that you delete the AWS resources that you created in this exercise.</p>
+<ol type="1">
+<li>Delete the QuickSight dashboards.
+<ol type="1">
+<li>Return to the QuickSight console by choosing the <strong>QuickSight</strong> icon (in the upper-left area of the webpage).</li>
+<li>If needed, in the navigation pane, choose <strong>Analyses</strong>.</li>
+<li>On the <strong>my_ingested_data</strong> card, open the actions menu by choosing the ellipsis icon.</li>
+<li>On the actions menu, choose <strong>Delete</strong> and confirm your action.</li>
+<li>Confirm your action.</li>
+<li>In the navigation pane, choose <strong>Datasets</strong>.</li>
+<li>For each dataset, on the actions menu (ellipsis icon), choose <strong>Delete</strong> and confirm your action.</li>
+</ol></li>
+<li><p>Delete your QuickSight account.</p>
+<p>If you will not be using QuickSight in the future, you can delete your account.</p>
+<p><strong>Note</strong>: Amazon QuickSight is a subscription service. For more information about QuickSight pricing, see the “Standard Edition” tab on the <a href="https://aws.amazon.com/quicksight/pricing/">Amazon QuickSight Pricing</a> page.</p>
+<ol type="1">
+<li>In the QuickSight console, choose the user icon and then choose <strong>Manage QuickSight</strong>.</li>
+<li>In the navigation pane, choose <strong>Account settings</strong>.</li>
+<li>Choose <strong>Delete account</strong> and confirm your action.</li>
+</ol></li>
+<li>Delete the S3 bucket.
+<ol type="1">
+<li>Return to the Amazon S3 console.</li>
+<li>Choose the bucket that you created for this exercise and delete all files in the bucket.</li>
+<li>Select the bucket name, choose <strong>Delete</strong>, and confirm your action.</li>
+</ol></li>
+<li>Delete the Athena table and queries.
+<ol type="1">
+<li>Return to the Athena console.</li>
+<li>Make sure that you are on the <strong>Editor</strong> tab.</li>
+<li>In the navigation pane, on the actions menu (ellipsis icon) for <strong>my_ingested_data</strong>, choose <strong>Delete table</strong> and confirm your action.</li>
+<li>Close the queries that you created.</li>
+<li>Choose the <strong>Settings</strong> tab and then choose <strong>Manage</strong>.</li>
+<li>Remove the path to the S3 bucket and save your changes.</li>
+</ol></li>
+<li>Delete the API Gateway configuration.
+<ol type="1">
+<li>Return to the API Gateway console.</li>
+<li>Select the API that you created.</li>
+<li>On the <strong>Actions</strong> menu, choose <strong>Delete</strong> and confirm your action.</li>
+</ol></li>
+<li>Delete the Kinesis Data Firehose delivery stream.
+<ol type="1">
+<li>Return to the Kinesis console.</li>
+<li>In the navigation pane, choose <strong>Delivery streams</strong>.</li>
+<li>Select the delivery stream that you created, choose <strong>Delete</strong>, and confirm your action.</li>
+</ol></li>
+<li>Delete the Lambda function.
+<ol type="1">
+<li>Return to the Lambda console.</li>
+<li>Select the <strong>transform-data</strong> Lambda function.</li>
+<li>On the <strong>Actions</strong> menu, choose <strong>Delete</strong>, and confirm your action.</li>
+</ol></li>
+<li>Delete the IAM roles and policies.
+<ol type="1">
+<li>Return to the IAM dashboard.</li>
+<li>In the navigation pane, choose <strong>Roles</strong>.</li>
+<li>Select <strong>APIGateway-Firehose</strong>, choose <strong>Delete</strong>, and confirm your action.</li>
+<li>In the navigation pane, choose <strong>Policies</strong>.</li>
+<li>Select <strong>API-Firehose</strong>.</li>
+<li>On the <strong>Actions</strong> menu, choose <strong>Delete</strong> and confirm the deletion.</li>
+</ol></li>
+</ol>
+<p>Congratulations! You successfully completed the exercise. The clickstream results that you ingested, processed, and visualized as part of this exercise will help the restaurant owner better understand their menu options.</p>
+<script>
+document.body.innerHTML = document.body.innerHTML.replace(/RELATIVE(.+)RELATIVE/g, function (match, capture) {
+  let tmp = document.createElement("DIV");
+  tmp.innerHTML = capture;
+  return new URL(tmp.textContent || tmp.innerText || "", document.baseURI).href;
+});
+</script>
+</body>
+</html>

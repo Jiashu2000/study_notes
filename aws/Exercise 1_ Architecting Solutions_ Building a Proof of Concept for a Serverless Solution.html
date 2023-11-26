@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="" xml:lang="">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Exercise 1: Architecting Solutions: Building a Proof of Concept for a Serverless Solution</title>
+  <script src="scripts/clipboard.min.js"></script>
+  <script src="scripts/copybutton.js"></script>
+
+<style>
+    html, body {
+        font-family: "Open Sans","Helvetica Neue",Helvetica,Arial,sans-serif;
+        margin: 1em;
+    }
+
+    img:not(.clipboard){
+        max-width: 100%;
+        height: auto;
+        width: auto;
+    }
+
+    /* Copy buttons */
+    button.copybtn {
+        webkit-transition: opacity .3s ease-in-out;
+        -o-transition: opacity .3s ease-in-out;
+        transition: opacity .3s ease-in-out;
+        opacity: 0;
+        padding: 2px 6px;
+        position: absolute;
+        right: 4px;
+        top: 4px;
+    }
+    div.sourceCode:hover .copybtn, div.sourceCode .copybtn:focus {
+        opacity: .3;
+    }
+    div.sourceCode .copybtn:hover {
+        opacity: 1;
+    }
+    div.sourceCode {
+        position: relative;
+    }
+    .xmodule_display.xmodule_HtmlBlock ol {
+        padding: 0 0 0 2em !important;
+    }
+    .xmodule_display.xmodule_HtmlBlock ul {
+        padding: 0 0 0 2em !important;
+    }
+
+    code {
+        padding: 2px 4px !important;
+        background-color: #eee !important;
+        border-radius: 4px;
+    }
+    pre code {
+        padding: 9.5px !important;
+        background-color: #f5f5f5 !important;
+        display: block;
+        overflow-x: auto;
+        margin: 0 0 10px;
+        font-size: 13px;
+        line-height: 1.42857143;
+        word-break: break-all;
+        word-wrap: break-word;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        white-space: pre;
+    }
+    pre code span.al { color: #ff0000; font-weight: bold; } /* Alert */
+    pre code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
+    pre code span.at { color: #7d9029; } /* Attribute */
+    pre code span.bn { color: #40a070; } /* BaseN */
+    pre code span.bu { color: #06287e; } /* BuiltIn */
+    pre code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
+    pre code span.ch { color: #4070a0; } /* Char */
+    pre code span.cn { color: #880000; } /* Constant */
+    pre code span.co { color: #60a0b0; font-style: italic; } /* Comment */
+    pre code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
+    pre code span.do { color: #ba2121; font-style: italic; } /* Documentation */
+    pre code span.dt { color: #902000; } /* DataType */
+    pre code span.dv { color: #40a070; } /* DecVal */
+    pre code span.er { color: #ff0000; font-weight: bold; } /* Error */
+    pre code span.ex { color: #06287e; } /* Extension */
+    pre code span.fl { color: #40a070; } /* Float */
+    pre code span.fu { color: #06287e; } /* Function */
+    pre code span.im { } /* Import */
+    pre code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
+    pre code span.kw { color: #007020; font-weight: bold; } /* Keyword */
+    pre code span.op { color: #666666; } /* Operator */
+    pre code span.ot { color: #007020; } /* Other */
+    pre code span.pp { color: #bc7a00; } /* Preprocessor */
+    pre code span.sc { color: #4070a0; } /* SpecialChar */
+    pre code span.ss { color: #bb6688; } /* SpecialString */
+    pre code span.st { color: #4070a0; } /* String */
+    pre code span.va { color: #19177c; } /* Variable */
+    pre code span.vs { color: #4070a0; } /* VerbatimString */
+    pre code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
+</style>
+<body>
+<p><em>[version_1.0]</em></p>
+<div style="background-color: #FFD2D2; padding: 15px; margin-bottom: 25px">
+<h3>
+<span class="fa fa-info-circle"></span> Note
+</h3>
+<p>The exercises in this course will have an associated charge in your AWS account. In this exercise, you will create the following resources:</p>
+<ul>
+<li>AWS Identity and Access Management (IAM) policy and user (policies and users are AWS account features, offered at no additional charge)</li>
+<li>Amazon DynamoDB table</li>
+<li>AWS Lambda functions</li>
+<li>Amazon Simple Queue Service (Amazon SQS) queue</li>
+<li>Amazon Simple Notification Service (Amazon SNS) topic</li>
+<li>Amazon API Gateway</li>
+<li><p>Amazon CloudWatch Logs</p>
+<p><strong>The final task in this exercise includes instructions to delete all the resources that you create.</strong></p></li>
+</ul>
+<p>Familiarize yourself with <strong><a href="https://aws.amazon.com/dynamodb/pricing/">DynamoDB pricing</a></strong>, <strong><a href="https://aws.amazon.com/sqs/pricing/">Amazon SQS pricing</a></strong>, <strong><a href="https://aws.amazon.com/sns/pricing/">Amazon SNS pricing</a></strong>, <strong><a href="https://aws.amazon.com/lambda/pricing/">Lambda pricing</a></strong>, <strong><a href="https://aws.amazon.com/api-gateway/pricing/">API Gateway pricing</a></strong>, <strong><a href="https://aws.amazon.com/cloudwatch/pricing/">CloudWatch Logs pricing</a></strong>, and the <strong><a href="https://aws.amazon.com/free/">AWS Free Tier</a></strong>.</p>
+</div>
+<h1 id="exercise-1.-architecting-solutions-building-a-proof-of-concept-for-a-serverless-solution">Exercise 1. Architecting Solutions: Building a Proof of Concept for a Serverless Solution</h1>
+<p>This exercise provides you with instructions for how to build a proof of concept for a serverless solution in the AWS Cloud.</p>
+<p>Suppose you have a customer that needs a serverless web backend hosted on AWS. The customer sells cleaning supplies and often sees spikes in demand for their website, which means that they need an architecture that can easily scale in and out as demand changes. The customer also wants to ensure that the application has decoupled application components.</p>
+<p>The following architectural diagram shows the flow for the serverless solution that you will build.</p>
+<figure>
+<img src="images/exercise-1.png" alt="Architecture diagram for exercise 1" /><figcaption>Architecture diagram for exercise 1</figcaption>
+</figure>
+<p>In this architecture, you will use a REST API to place a database entry in the Amazon SQS queue. Amazon SQS will then invoke the first Lambda function, which inserts the entry into a DynamoDB table. After that, DynamoDB Streams will capture a record of the new entry in a database and invoke a second Lambda function. The function will pass the database entry to Amazon SNS. After Amazon SNS processes the new record, it will send you a notification through a specified email address.</p>
+<p>In this exercise, you will learn how to do the following:</p>
+<ul>
+<li>Create IAM policies and roles to follow best practices of working in the AWS Cloud.</li>
+<li>Create a DynamoDB table to store data.</li>
+<li>Create an Amazon SQS queue to receive, store, and send messages between software components.</li>
+<li>Create Lambda functions and set up triggers to invoke actions in different AWS services.<br />
+</li>
+<li>Enable DynamoDB Streams to capture modifications in the database table.</li>
+<li>Configure Amazon SNS to receive email or text notifications.</li>
+<li>Create a REST API to insert data into a database.</li>
+</ul>
+<blockquote>
+<p><strong>Notes:</strong></p>
+<p>To complete the instructions in this exercise, choose the <strong>US East (N. Virginia) us-east-1</strong> Region in the navigation pane of the AWS Management Console.</p>
+<p>The instructions might prompt you to enter your account ID. Your account ID is a 12-digit account number that appears under your account alias in the top-right corner of the AWS Management Console. When you enter your account number (ID), make sure that you remove hyphens (-).</p>
+</blockquote>
+<h2 id="task-1.-setup-creating-iam-policies-and-roles">Task 1. Setup: Creating IAM policies and roles</h2>
+<p>When you first create an account on AWS, you become a root user, or an account owner. We don’t recommend that you use the account root user for daily operations and tasks. Instead, you should use an IAM user or IAM roles to access specific services and features. IAM policies, users, and roles are offered at no additional charge.</p>
+<p>In this task, you create custom IAM policies and roles to grant limited permissions to specific AWS services.</p>
+<h3 id="step-1.1-creating-custom-iam-policies">Step 1.1: Creating custom IAM policies</h3>
+<ol type="1">
+<li><p>Sign in to the AWS Management Console.</p></li>
+<li><p>In the search box, enter <strong>IAM</strong>.</p></li>
+<li><p>From the results list, choose <strong>IAM</strong>.</p></li>
+<li><p>In the navigation pane, choose <strong>Policies</strong>.</p></li>
+<li><p>Choose <strong>Create policy</strong>.</p>
+<p>The <strong>Create policy</strong> page appears. You can create and edit a policy in the visual editor or use JSON. In this exercise, we provide JSON scripts to create policies. In total, you must create four policies.</p></li>
+<li><p>In the JSON tab, paste the following code:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb1-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb1-2" title="2">    <span class="dt">&quot;Version&quot;</span><span class="fu">:</span> <span class="st">&quot;2012-10-17&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-3" title="3">    <span class="dt">&quot;Statement&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb1-4" title="4">        <span class="fu">{</span></a>
+<a class="sourceLine" id="cb1-5" title="5">            <span class="dt">&quot;Sid&quot;</span><span class="fu">:</span> <span class="st">&quot;VisualEditor0&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-6" title="6">            <span class="dt">&quot;Effect&quot;</span><span class="fu">:</span> <span class="st">&quot;Allow&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-7" title="7">            <span class="dt">&quot;Action&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb1-8" title="8">                <span class="st">&quot;dynamodb:PutItem&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb1-9" title="9">                <span class="st">&quot;dynamodb:DescribeTable&quot;</span></a>
+<a class="sourceLine" id="cb1-10" title="10">            <span class="ot">]</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb1-11" title="11">            <span class="dt">&quot;Resource&quot;</span><span class="fu">:</span> <span class="st">&quot;*&quot;</span></a>
+<a class="sourceLine" id="cb1-12" title="12">        <span class="fu">}</span></a>
+<a class="sourceLine" id="cb1-13" title="13">    <span class="ot">]</span></a>
+<a class="sourceLine" id="cb1-14" title="14"><span class="fu">}</span></a></code></pre></div>
+<p>This JSON script grants permissions to put items into the DynamoDB table. The asterisk (*) indicates that the specified actions can apply to all available resources.</p></li>
+<li><p>Choose <strong>Next: Tags</strong> and then choose <strong>Next: Review</strong>.</p></li>
+<li><p>For the policy name, enter <code>Lambda-Write-DynamoDB</code>.</p></li>
+<li><p>Choose <strong>Create policy</strong>.</p></li>
+<li><p>After you create the Lambda-Write-DynamoDB policy, repeat the previous steps to create the following policies:</p>
+<ul>
+<li><p>A policy for Amazon SNS to get, list, and publish topics that are received by Lambda:</p>
+<ul>
+<li><strong>Name</strong>: <code>Lambda-SNS-Publish</code></li>
+<li><strong>JSON</strong>:</li>
+</ul>
+<div class="sourceCode" id="cb2"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb2-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb2-2" title="2">    <span class="dt">&quot;Version&quot;</span><span class="fu">:</span> <span class="st">&quot;2012-10-17&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb2-3" title="3">    <span class="dt">&quot;Statement&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb2-4" title="4">        <span class="fu">{</span></a>
+<a class="sourceLine" id="cb2-5" title="5">            <span class="dt">&quot;Sid&quot;</span><span class="fu">:</span> <span class="st">&quot;VisualEditor0&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb2-6" title="6">            <span class="dt">&quot;Effect&quot;</span><span class="fu">:</span> <span class="st">&quot;Allow&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb2-7" title="7">            <span class="dt">&quot;Action&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb2-8" title="8">                <span class="st">&quot;sns:Publish&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb2-9" title="9">                <span class="st">&quot;sns:GetTopicAttributes&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb2-10" title="10">                    <span class="st">&quot;sns:ListTopics&quot;</span></a>
+<a class="sourceLine" id="cb2-11" title="11">            <span class="ot">]</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb2-12" title="12">                <span class="dt">&quot;Resource&quot;</span><span class="fu">:</span> <span class="st">&quot;*&quot;</span></a>
+<a class="sourceLine" id="cb2-13" title="13">        <span class="fu">}</span></a>
+<a class="sourceLine" id="cb2-14" title="14">    <span class="ot">]</span></a>
+<a class="sourceLine" id="cb2-15" title="15"> <span class="fu">}</span></a></code></pre></div></li>
+<li><p>A policy for Lambda to get records from DynamoDB Streams:</p>
+<ul>
+<li><strong>Name</strong>: <code>Lambda-DynamoDBStreams-Read</code></li>
+<li><strong>JSON</strong>:</li>
+</ul>
+<div class="sourceCode" id="cb3"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb3-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb3-2" title="2">    <span class="dt">&quot;Version&quot;</span><span class="fu">:</span> <span class="st">&quot;2012-10-17&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-3" title="3">    <span class="dt">&quot;Statement&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb3-4" title="4">        <span class="fu">{</span></a>
+<a class="sourceLine" id="cb3-5" title="5">            <span class="dt">&quot;Sid&quot;</span><span class="fu">:</span> <span class="st">&quot;VisualEditor0&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-6" title="6">            <span class="dt">&quot;Effect&quot;</span><span class="fu">:</span> <span class="st">&quot;Allow&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-7" title="7">            <span class="dt">&quot;Action&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb3-8" title="8">                <span class="st">&quot;dynamodb:GetShardIterator&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-9" title="9">                <span class="st">&quot;dynamodb:DescribeStream&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-10" title="10">                <span class="st">&quot;dynamodb:ListStreams&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb3-11" title="11">                <span class="st">&quot;dynamodb:GetRecords&quot;</span></a>
+<a class="sourceLine" id="cb3-12" title="12">            <span class="ot">]</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb3-13" title="13">            <span class="dt">&quot;Resource&quot;</span><span class="fu">:</span> <span class="st">&quot;*&quot;</span></a>
+<a class="sourceLine" id="cb3-14" title="14">        <span class="fu">}</span></a>
+<a class="sourceLine" id="cb3-15" title="15">    <span class="ot">]</span></a>
+<a class="sourceLine" id="cb3-16" title="16"><span class="fu">}</span></a></code></pre></div></li>
+<li><p>A policy for Lambda to read messages that are placed in Amazon SQS:</p>
+<ul>
+<li><strong>Name</strong>: <code>Lambda-Read-SQS</code></li>
+<li><strong>JSON</strong>:</li>
+</ul>
+<div class="sourceCode" id="cb4"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb4-1" title="1"><span class="fu">{</span></a>
+<a class="sourceLine" id="cb4-2" title="2">    <span class="dt">&quot;Version&quot;</span><span class="fu">:</span> <span class="st">&quot;2012-10-17&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb4-3" title="3">    <span class="dt">&quot;Statement&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb4-4" title="4">        <span class="fu">{</span></a>
+<a class="sourceLine" id="cb4-5" title="5">            <span class="dt">&quot;Sid&quot;</span><span class="fu">:</span> <span class="st">&quot;VisualEditor0&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb4-6" title="6">            <span class="dt">&quot;Effect&quot;</span><span class="fu">:</span> <span class="st">&quot;Allow&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb4-7" title="7">            <span class="dt">&quot;Action&quot;</span><span class="fu">:</span> <span class="ot">[</span></a>
+<a class="sourceLine" id="cb4-8" title="8">                <span class="st">&quot;sqs:DeleteMessage&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb4-9" title="9">                <span class="st">&quot;sqs:ReceiveMessage&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb4-10" title="10">                <span class="st">&quot;sqs:GetQueueAttributes&quot;</span><span class="ot">,</span></a>
+<a class="sourceLine" id="cb4-11" title="11">                <span class="st">&quot;sqs:ChangeMessageVisibility&quot;</span></a>
+<a class="sourceLine" id="cb4-12" title="12">            <span class="ot">]</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb4-13" title="13">            <span class="dt">&quot;Resource&quot;</span><span class="fu">:</span> <span class="st">&quot;*&quot;</span></a>
+<a class="sourceLine" id="cb4-14" title="14">        <span class="fu">}</span></a>
+<a class="sourceLine" id="cb4-15" title="15">    <span class="ot">]</span></a>
+<a class="sourceLine" id="cb4-16" title="16"><span class="fu">}</span></a></code></pre></div></li>
+</ul></li>
+</ol>
+<h3 id="step-1.2-creating-iam-roles-and-attaching-policies-to-the-roles">Step 1.2: Creating IAM roles and attaching policies to the roles</h3>
+<p>Because AWS follows the principle of least privilege, we recommend that you provide role-based access to only the AWS resources that are required to perform a task. In this step, you create IAM roles and attach policies to the roles.</p>
+<ol type="1">
+<li><p>In the navigation pane of the IAM dashboard, choose <strong>Roles</strong>.</p></li>
+<li>Choose <strong>Create role</strong> and in the <strong>Select trusted entity</strong> page, configure the following settings:
+<ul>
+<li><strong>Trusted entity type</strong>: <em>AWS service</em></li>
+<li><strong>Common use cases</strong>: <em>Lambda</em></li>
+</ul></li>
+<li><p>Choose <strong>Next</strong>.</p></li>
+<li><p>On the <strong>Add permissions</strong> page, select <strong>Lambda-Write-DynamoDB</strong> and <strong>Lambda-Read-SQS</strong>.</p></li>
+<li><p>Choose <strong>Next</strong></p></li>
+<li><p>For <strong>Role name</strong>, enter <code>Lambda-SQS-DynamoDB</code>.</p></li>
+<li><p>Choose <strong>Create role</strong>.</p></li>
+<li><p>Follow the previous steps to create two more IAM roles:</p>
+<ul>
+<li>An IAM role for AWS Lambda: This role grants permissions to obtain records from the DynamoDB streams and send the records to Amazon SNS. Use the following information to create the role.
+<ul>
+<li><strong>IAM role name</strong>: <code>Lambda-DynamoDBStreams-SNS</code></li>
+<li><strong>Trusted entity type</strong>: <em>AWS service</em></li>
+<li><strong>Common use cases</strong>: <em>Lambda</em></li>
+<li><strong>Attach policies</strong>: <em>Lambda-SNS-Publish</em> and <em>Lambda-DynamoDBStreams-Read</em></li>
+</ul></li>
+<li>An IAM role for Amazon API Gateway: This role grants permissions to send data to the SQS queue and push logs to Amazon CloudWatch for troubleshooting. Use the following information to create the role.
+<ul>
+<li><strong>IAM role name</strong>: <code>APIGateway-SQS</code></li>
+<li><strong>Trusted entity type</strong>: <em>AWS service</em></li>
+<li><strong>Common use cases</strong>: <em>API Gateway</em></li>
+<li><strong>Attach policies</strong>: <em>AmazonAPIGatewayPushToCloudWatchLogs</em></li>
+</ul></li>
+</ul></li>
+</ol>
+<h2 id="task-2-creating-a-dynamodb-table">Task 2: Creating a DynamoDB table</h2>
+<p>In this task, you create a DynamoDB table that ingests data that’s passed on through API Gateway.</p>
+<ol type="1">
+<li><p>In the search box of the AWS Management Console, enter <strong>DynamoDB</strong>.</p></li>
+<li><p>From the list, choose the <strong>DynamoDB</strong> service.</p></li>
+<li>On the <strong>Get started</strong> card, choose <strong>Create table</strong> and configure the following settings:
+<ul>
+<li><strong>Table</strong>: <code>orders</code></li>
+<li><strong>Partition key</strong>: <code>orderID</code></li>
+<li>Data type: Keep <strong>String</strong></li>
+</ul></li>
+<li><p>Keep the remaining settings at their default values, and choose <strong>Create table</strong>.</p></li>
+</ol>
+<h2 id="task-3-creating-an-sqs-queue">Task 3: Creating an SQS queue</h2>
+<p>In this task, you create an SQS queue. In the architecture for this exercise, the Amazon SQS receives data records from API Gateway, stores them, and then sends them to a database.</p>
+<ol type="1">
+<li><p>In the AWS Management Console search box, enter <code>SQS</code> and from the list, choose <strong>Simple Queue Service</strong>.</p></li>
+<li><p>On the <strong>Get started</strong> card, choose <strong>Create queue</strong>.</p>
+<p>The <strong>Create queue</strong> page appears.</p></li>
+<li>Configure the following settings:
+<ul>
+<li><strong>Name</strong>: <code>POC-Queue</code></li>
+<li><strong>Access Policy</strong>: <em>Basic</em></li>
+<li><strong>Define who can send messages to the queue</strong>:
+<ul>
+<li>Select <em>Only the specified AWS accounts, IAM users and roles</em></li>
+<li>In the box for this option, paste the Amazon Resource Name (ARN) for the <em>APIGateway-SQS</em> IAM role</li>
+<li><strong>Note</strong>: For example, your IAM role might look similar to the following: <code>arn:aws:iam::&lt;account ID&gt;:role/APIGateway-SQS</code>.</li>
+</ul></li>
+<li><strong>Define who can receive messages from the queue</strong>:
+<ul>
+<li>Select <em>Only the specified AWS accounts, IAM users and roles</em>.</li>
+<li>In the box for this option, paste the ARN for the <em>Lambda-SQS-DynamoDB</em> IAM role.</li>
+<li><strong>Note</strong>: For example, your IAM role might look similar to the following: <code>arn:aws:iam::&lt;account_ID&gt;:role/Lambda-SQS-DynamoDB</code></li>
+</ul></li>
+</ul></li>
+<li><p>Choose <strong>Create queue</strong>.</p></li>
+</ol>
+<h2 id="task-4-creating-a-lambda-function-and-setting-up-triggers">Task 4: Creating a Lambda function and setting up triggers</h2>
+<p>In this task, you create a Lambda function that reads messages from the SQS queue and writes an order record to the DynamoDB table.</p>
+<h3 id="step-4.1-creating-a-lambda-function-for-the-lambda-sqs-dynamodb-role">Step 4.1: Creating a Lambda function for the Lambda-SQS-DynamoDB role</h3>
+<ol type="1">
+<li><p>In the AWS Management Console search box, enter <strong>Lambda</strong> and from the list, choose <strong>Lambda</strong>.</p></li>
+<li>Choose <strong>Create function</strong> and configure the following settings:
+<ul>
+<li><strong>Function option</strong>: <em>Author from scratch</em></li>
+<li><strong>Function name</strong>: <code>POC-Lambda-1</code></li>
+<li><strong>Runtime</strong>: <em>Python 3.9</em></li>
+<li><strong>Change default execution role</strong>: <em>Use an existing role</em></li>
+<li><strong>Existing role</strong>: <code>Lambda-SQS-DynamoDB</code></li>
+</ul></li>
+<li><p>Choose <strong>Create function</strong>.</p></li>
+</ol>
+<h3 id="step-4.2-setting-up-amazon-sqs-as-a-trigger-to-invoke-the-function">Step 4.2: Setting up Amazon SQS as a trigger to invoke the function</h3>
+<ol type="1">
+<li><p>If needed, expand the <strong>Function overview</strong> section.</p></li>
+<li><p>Choose <strong>Add trigger</strong>.</p></li>
+<li><p>For <strong>Trigger configuration</strong>, enter <code>SQS</code> and choose the service in the list.</p></li>
+<li><p>For <strong>SQS queue</strong>, choose <strong>POC-Queue</strong>.</p></li>
+<li><p>Add the trigger by choosing <strong>Add</strong>.</p></li>
+</ol>
+<h3 id="step-4.3-adding-and-deploying-the-function-code">Step 4.3: Adding and deploying the function code</h3>
+<ol type="1">
+<li><p>On the <strong>POC-Lambda-1</strong> page, in the <strong>Code</strong> tab, replace the default Lambda function code with the following code:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb5-1" title="1"><span class="im">import</span> boto3, uuid</a>
+<a class="sourceLine" id="cb5-2" title="2"></a>
+<a class="sourceLine" id="cb5-3" title="3">client <span class="op">=</span> boto3.resource(<span class="st">&#39;dynamodb&#39;</span>)</a>
+<a class="sourceLine" id="cb5-4" title="4">table <span class="op">=</span> client.Table(<span class="st">&quot;orders&quot;</span>)</a>
+<a class="sourceLine" id="cb5-5" title="5"></a>
+<a class="sourceLine" id="cb5-6" title="6"><span class="kw">def</span> lambda_handler(event, context):</a>
+<a class="sourceLine" id="cb5-7" title="7">    <span class="cf">for</span> record <span class="kw">in</span> event[<span class="st">&#39;Records&#39;</span>]:</a>
+<a class="sourceLine" id="cb5-8" title="8">        <span class="bu">print</span>(<span class="st">&quot;test&quot;</span>)</a>
+<a class="sourceLine" id="cb5-9" title="9">        payload <span class="op">=</span> record[<span class="st">&quot;body&quot;</span>]</a>
+<a class="sourceLine" id="cb5-10" title="10">        <span class="bu">print</span>(<span class="bu">str</span>(payload))</a>
+<a class="sourceLine" id="cb5-11" title="11">        table.put_item(Item<span class="op">=</span> {<span class="st">&#39;orderID&#39;</span>: <span class="bu">str</span>(uuid.uuid4()),<span class="st">&#39;order&#39;</span>:  payload})</a></code></pre></div></li>
+<li><p>Choose <strong>Deploy</strong>.</p>
+<p>The Lambda code passes arguments to a function call. As a result, when a trigger invokes a function, Lambda runs the code that you specify.</p>
+<p>When you use Lambda, you are responsible only for your code. Lambda manages the memory, CPU, network, and other resources to run your code.</p></li>
+</ol>
+<h3 id="step-4.4-testing-the-poc-lambda-1-lambda-function">Step 4.4: Testing the POC-Lambda-1 Lambda function</h3>
+<ol type="1">
+<li>In the <strong>Test</strong> tab, create a new event that has the following settings:
+<ul>
+<li><strong>Event name</strong>: <code>POC-Lambda-Test-1</code></li>
+<li><strong>Template-Optional</strong>: <code>SQS</code></li>
+</ul>
+<p>The SQS template appears in the <strong>Event JSON</strong> field.</p></li>
+<li><p>Save your changes and choose <strong>Test</strong>.</p>
+<p>After the Lambda function runs successfully, the “Execution result: succeeded” message appears in the notification banner in the <strong>Test</strong> section. This means that the Lambda function sent a test message “Hello from SQS!” from the SQS template to the DynamoDB table.</p></li>
+</ol>
+<h3 id="step-4.5-verifying-that-the-lambda-function-adds-the-test-message-to-a-database">Step 4.5: Verifying that the Lambda function adds the test message to a database</h3>
+<ol type="1">
+<li><p>In the AWS Management Console search box, enter <code>DynamoDB</code> and from the list, choose <strong>DynamoDB</strong>.</p></li>
+<li><p>In the navigation pane, choose <strong>Explore items</strong>.</p></li>
+<li><p>Select the <strong>orders</strong> database. Under <strong>Items returned</strong>, the <strong>orders</strong> table returns “Hello from SQS!” from the Lambda function test.</p></li>
+</ol>
+<h2 id="task-5-enabling-dynamodb-streams">Task 5: Enabling DynamoDB Streams</h2>
+<p>In this task, you enable DynamoDB Streams. A DynamoDB stream captures information about every modification to data items in the table.</p>
+<ol type="1">
+<li><p>In the DynamoDB console, in the <strong>Tables</strong> section of the navigation pane, choose <strong>Update settings</strong>.</p></li>
+<li><p>In the <strong>Tables</strong> card, make sure that the <strong>orders</strong> table is selected.</p></li>
+<li><p>Choose the <strong>Exports and streams</strong> tab.</p></li>
+<li><p>In the <strong>DynamoDB stream details</strong> section, choose <strong>Enable</strong>.</p></li>
+<li><p>For <strong>View type</strong>, choose <strong>New image</strong>.</p></li>
+<li><p>Choose <strong>Enable stream</strong>.</p>
+<p>After the Lambda function reads messages from the SQS queue and writes an order record to the DynamoDB table, DynamoDB Streams captures the primary key attributes from the record.</p></li>
+</ol>
+<h2 id="task-6-creating-an-sns-topic-and-setting-up-subscriptions">Task 6: Creating an SNS topic and setting up subscriptions</h2>
+<p>In this task, you create an SNS topic and set up subscriptions. Amazon SNS coordinates and manages delivering or sending messages to subscriber endpoints or clients.</p>
+<h3 id="step-6.1-creating-a-topic-in-the-notification-service">Step 6.1: Creating a topic in the notification service</h3>
+<ol type="1">
+<li><p>In the AWS Management Console, search for <code>SNS</code> and choose <strong>Simple Notification Service</strong>.</p></li>
+<li><p>On the <strong>Create topic</strong> card, enter <code>POC-Topic</code> and choose <strong>Next step</strong>.</p></li>
+<li><p>In the <strong>Details</strong> section, keep the <strong>Standard</strong> topic type selected and choose <strong>Create topic</strong>.</p></li>
+<li><p>On the <strong>POC-Topic</strong> page, copy the ARN of the topic that you just created and save it for your reference.</p>
+<p>You will need the ARN for the SNS topic later in this exercise.</p></li>
+</ol>
+<h3 id="step-6.2-subscribing-to-email-notifications">Step 6.2: Subscribing to email notifications</h3>
+<ol type="1">
+<li><p>On the <strong>Subscriptions</strong> tab, choose <strong>Create subscription</strong>.</p></li>
+<li><p>For <strong>Topic ARN</strong>, make sure that the box contains the ARN for POC-Topic.</p></li>
+<li><p>To receive notifications, for <strong>Protocol</strong>, choose <strong>Email</strong>.</p></li>
+<li><p>For <strong>Endpoint</strong>, enter your email address.</p></li>
+<li><p>Choose <strong>Create subscription</strong>.</p>
+<p>The confirmation message is sent to the email address that you specified.</p></li>
+<li><p>After you receive the confirmation email message, confirm the subscription. If you don’t receive an email message within a few minutes, check the spam folder.</p></li>
+</ol>
+<h2 id="task-7-creating-an-aws-lambda-function-to-publish-a-message-to-the-sns-topic">Task 7: Creating an AWS Lambda function to publish a message to the SNS topic</h2>
+<p>In this task, you create a Lambda function for the Lambda-DynamoDBStreams-SNS role. The second Lambda function uses DynamoDB Streams as a trigger to pass the record of a new entry to Amazon SNS.</p>
+<h3 id="step-7.1-creating-a-poc-lambda-2-function">Step 7.1: Creating a POC-Lambda-2 function</h3>
+<ol type="1">
+<li><p>In the AWS Management Console, search for and open AWS Lambda.</p></li>
+<li>Create a new Lambda function by choosing <strong>Create function</strong>, and configure the following settings:
+<ul>
+<li><strong>Function option</strong>: <em>Author from scratch</em></li>
+<li><strong>Function name</strong>: <code>POC-Lambda-2</code></li>
+<li><strong>Runtime</strong>: <em>Python 3.9</em></li>
+<li><strong>Change default execution role</strong>: <em>Use an existing role</em></li>
+<li><strong>Existing role</strong>: <em>Lambda-DynamoDBStreams-SNS</em></li>
+</ul>
+<p>This role grants permissions to get records from DynamoDB Streams and send them to Amazon SNS.</p></li>
+<li><p>Choose <strong>Create function</strong>.</p></li>
+</ol>
+<h3 id="step-7.2-setting-up-dynamodb-as-a-trigger-to-invoke-a-lambda-function">Step 7.2: Setting up DynamoDB as a trigger to invoke a Lambda function</h3>
+<ol type="1">
+<li>In the <strong>Function overview</strong> section, choose <strong>Add trigger</strong> and configure the following settings:
+<ul>
+<li><strong>Trigger configuration</strong>: Enter <code>DynamoDB</code> and from the list, choose <strong>DynamoDB</strong>.</li>
+<li><strong>DynamoDB table</strong>: <em>orders</em></li>
+</ul></li>
+<li><p>Keep the remaining default settings and choose <strong>Add</strong>.</p></li>
+<li><p>In the <strong>Configuration</strong> tab, make sure that you are in the <strong>Triggers</strong> section and that the DynamoDB state is “Enabled.”</p></li>
+</ol>
+<h3 id="step-7.3-configuring-the-second-lambda-function">Step 7.3: Configuring the second Lambda function</h3>
+<ol type="1">
+<li><p>Choose the <strong>Code</strong> tab and replace the Lambda function code with the following code:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode python"><code class="sourceCode python"><a class="sourceLine" id="cb6-1" title="1"><span class="im">import</span> boto3, json</a>
+<a class="sourceLine" id="cb6-2" title="2"></a>
+<a class="sourceLine" id="cb6-3" title="3">client <span class="op">=</span> boto3.client(<span class="st">&#39;sns&#39;</span>)</a>
+<a class="sourceLine" id="cb6-4" title="4"></a>
+<a class="sourceLine" id="cb6-5" title="5"><span class="kw">def</span> lambda_handler(event, context):</a>
+<a class="sourceLine" id="cb6-6" title="6"></a>
+<a class="sourceLine" id="cb6-7" title="7">    <span class="cf">for</span> record <span class="kw">in</span> event[<span class="st">&quot;Records&quot;</span>]:</a>
+<a class="sourceLine" id="cb6-8" title="8"></a>
+<a class="sourceLine" id="cb6-9" title="9">        <span class="cf">if</span> record[<span class="st">&#39;eventName&#39;</span>] <span class="op">==</span> <span class="st">&#39;INSERT&#39;</span>:</a>
+<a class="sourceLine" id="cb6-10" title="10">            new_record <span class="op">=</span> record[<span class="st">&#39;dynamodb&#39;</span>][<span class="st">&#39;NewImage&#39;</span>]    </a>
+<a class="sourceLine" id="cb6-11" title="11">            response <span class="op">=</span> client.publish(</a>
+<a class="sourceLine" id="cb6-12" title="12">                TargetArn<span class="op">=</span><span class="st">&#39;&lt;Enter Amazon SNS ARN for the POC-Topic&gt;&#39;</span>,</a>
+<a class="sourceLine" id="cb6-13" title="13">                Message<span class="op">=</span>json.dumps({<span class="st">&#39;default&#39;</span>: json.dumps(new_record)}),</a>
+<a class="sourceLine" id="cb6-14" title="14">                MessageStructure<span class="op">=</span><span class="st">&#39;json&#39;</span></a>
+<a class="sourceLine" id="cb6-15" title="15">            )</a></code></pre></div>
+<p><strong>Note:</strong> In the function code, replace the <strong>TargetArn</strong> value with the ARN for the Amazon SNS POC-Topic. Make sure that you remove the placeholder angle brackets (&lt;&gt;).</p>
+<p>Your ARN might look similar to the following: <code>arn:aws:sns:us-east-1:&lt;account ID&gt;:POC-Topic</code>.</p></li>
+<li><p>Choose <strong>Deploy</strong>.</p></li>
+</ol>
+<h3 id="step-7.4-testing-the-poc-lambda-2-lambda-function">Step 7.4: Testing the POC-Lambda-2 Lambda function</h3>
+<ol type="1">
+<li><p>On the <strong>Test</strong> tab, create a new event and for <strong>Event name</strong>, enter <code>POC-Lambda-Test-2</code>.</p></li>
+<li><p>For <strong>Template-optional</strong>, enter <code>DynamoDB</code> and from the list, choose <strong>DynamoDB-Update</strong>.</p>
+<p>The DynamoDB template appears in the <strong>Event JSON</strong> box.</p></li>
+<li><p>Save your changes and choose <strong>Test</strong>.</p>
+<p>After the Lambda function successfully runs, the “Execution result: succeeded” message should appear in the notification banner in the <strong>Test</strong> section.</p>
+<p>In a few minutes, an email message should arrive at the email address that you specified in the previous task.</p></li>
+<li><p>Confirm that you received the subscription email message. If needed, check both your inbox and spam folder.</p></li>
+</ol>
+<h2 id="task-8-creating-an-api-with-amazon-api-gateway">Task 8: Creating an API with Amazon API Gateway</h2>
+<p>In this task, you create a REST API in Amazon API Gateway. The API serves as a communication gateway between your application and the AWS services.</p>
+<ol type="1">
+<li><p>In the AWS Management Console, search for and open <strong>API Gateway</strong>.</p></li>
+<li>On the <strong>REST API</strong> card with a public authentication, choose <strong>Build</strong> and configure the following settings:
+<ul>
+<li><strong>Choose the protocol</strong>: <em>REST</em></li>
+<li><strong>Create new API</strong>: <em>New API</em></li>
+<li><strong>API name</strong>: <code>POC-API</code></li>
+<li><strong>Endpoint Type</strong>: <em>Regional</em></li>
+</ul></li>
+<li><p>Choose <strong>Create API</strong>.</p></li>
+<li><p>On the <strong>Actions</strong> menu, choose <strong>Create Method</strong>.</p></li>
+<li><p>Open the method menu by choosing the down arrow, and choose <strong>POST</strong>. Save your changes by choosing the check mark.</p></li>
+<li>In the <strong>POST - Setup</strong> pane, configure the following settings:
+<ul>
+<li><strong>Integration type</strong>: <em>AWS Service</em></li>
+<li><strong>AWS Region</strong>: <em>us-east-1</em></li>
+<li><strong>AWS Service</strong>: <em>Simple Queue Service (SQS)</em></li>
+<li><strong>AWS Subdomain</strong>: Keep empty</li>
+<li><strong>HTTP method</strong>: <em>POST</em></li>
+<li><strong>Action Type</strong>: <em>Use path override</em></li>
+<li><strong>Path override</strong>: Enter your account ID followed by a slash (/) and the name of the POC queue
+<ul>
+<li><strong>Note</strong>: If <em>POC-Queue</em> is the name of the SQS queue that you created, this entry might look similar to the following: <code>/&lt;account ID&gt;/POC-Queue</code></li>
+</ul></li>
+<li><strong>Execution role</strong>: Paste the ARN of the APIGateway-SQS role
+<ul>
+<li><strong>Note</strong>: For example, the ARN might look like the following: <code>arn:aws:iam::&lt;account ID&gt;:role/APIGateway-SQS</code></li>
+</ul></li>
+<li><strong>Content Handling</strong>: <em>Passthrough</em></li>
+</ul></li>
+<li><p>Save your changes.</p></li>
+<li><p>Choose the <strong>Integration Request</strong> card.</p></li>
+<li><p>Scroll to the bottom of the page and expand <strong>HTTP Headers</strong>.</p></li>
+<li><p>Choose <strong>Add header</strong>.</p></li>
+<li><p>For <strong>Name</strong>, enter <code>Content-Type</code></p></li>
+<li><p>For <strong>Mapped from</strong>, enter <code>'application/x-www-form-urlencoded'</code></p></li>
+<li><p>Save your changes to the <strong>HTTP Headers</strong> section by choosing the check mark.</p></li>
+<li><p>Expand <strong>Mapping Templates</strong> and for <strong>Request body passthrough</strong>, choose <strong>Never</strong>.</p></li>
+<li><p>Choose <strong>Add mapping template</strong> and for <strong>Content-Type</strong> , enter <code>application/json</code></p></li>
+<li><p>Save your changes by choosing the check mark.</p></li>
+<li><p>For <strong>Generate template</strong>, do not choose a default template from the list. Instead, enter the following command: <code>Action=SendMessage&amp;MessageBody=$input.body</code> in a box.</p></li>
+<li><p>Choose <strong>Save</strong>.</p></li>
+</ol>
+<h2 id="task-9-testing-the-architecture-by-using-api-gateway">Task 9: Testing the architecture by using API Gateway</h2>
+<p>In this task, you use API Gateway to send mock data to Amazon SQS as a proof of concept for the serverless solution.</p>
+<ol type="1">
+<li><p>In the API Gateway console, return to the <strong>POST - Method Execution</strong> page and choose <strong>Test</strong>.</p></li>
+<li><p>In the <strong>Request Body</strong> box, enter:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode json"><code class="sourceCode json"><a class="sourceLine" id="cb7-1" title="1"><span class="fu">{</span>  <span class="dt">&quot;item&quot;</span><span class="fu">:</span> <span class="st">&quot;latex gloves&quot;</span><span class="fu">,</span></a>
+<a class="sourceLine" id="cb7-2" title="2"><span class="dt">&quot;customerID&quot;</span><span class="fu">:</span><span class="st">&quot;12345&quot;</span><span class="fu">}</span></a></code></pre></div></li>
+<li><p>Choose <strong>Test</strong>.</p>
+<p>If you see the “Successfully completed execution” message with the 200 response in the logs on the right, you will receive an email notification with the new entry. If you don’t receive an email, but the new item appears in the DynamoDB table, troubleshoot the exercise instructions starting from <em>after</em> you set up DynamoDB. Ensure that you deploy all of the resources in the <em>us-east-1</em> Region.</p>
+<p>After API Gateway successfully processes the request that you pasted in the <strong>Request Body</strong> box, it places the request in the SQS queue. Because you set up Amazon SQS as a trigger in the first Lambda function, Amazon SQS invokes the function call. The Lambda function code places the new entry into the DynamoDB table. DynamoDB Streams captures this change to the database and invokes the second AWS Lambda function. This function gets the new record from DynamoDB Streams and sends it to Amazon SNS. Amazon SNS, in turn, sends you an email notification.</p></li>
+</ol>
+<h2 id="task-10-cleaning-up">Task 10: Cleaning up</h2>
+<p>In this task, you delete the AWS resources that you created for this exercise.</p>
+<ol type="1">
+<li>Delete the DynamoDB table.
+<ol type="1">
+<li>Open the DynamoDB console.</li>
+<li>In the navigation pane, choose <strong>Tables</strong>.</li>
+<li>Select the <strong>orders</strong> table.</li>
+<li>Choose <strong>Delete</strong> and confirm your actions.</li>
+</ol></li>
+<li>Delete the Lambda functions.
+<ol type="1">
+<li>Open the Lambda console.</li>
+<li>Select the Lambda functions that you created in this exercise: <strong>POC-Lambda-1</strong> and <strong>POC-Lambda-2</strong>.</li>
+<li>Choose <strong>Actions</strong>, <strong>Delete</strong>.</li>
+<li>Confirm your actions and close the dialog box.</li>
+</ol></li>
+<li>Delete the SQS queue.
+<ol type="1">
+<li>Open the Amazon SQS console.</li>
+<li>Select the queue that you created in this exercise.</li>
+<li>Choose <strong>Delete</strong> and confirm your actions.</li>
+</ol></li>
+<li>Delete the SNS topic and subscriptions.
+<ol type="1">
+<li>Open the Amazon SNS console.</li>
+<li>In the navigation pane, choose <strong>Topics</strong>.</li>
+<li>Select <strong>POC-Topic</strong>.</li>
+<li>Choose <strong>Delete</strong> and confirm your actions.</li>
+<li>In the navigation pane, choose <strong>Subscriptions</strong>.</li>
+<li>Select the subscription that you created in this exercise and choose <strong>Delete</strong>.</li>
+<li>Confirm your actions.</li>
+</ol></li>
+<li>Delete the API that you created.
+<ol type="1">
+<li>Open the API Gateway console.</li>
+<li>Select <strong>POC-API</strong>.</li>
+<li>Choose <strong>Actions</strong>, <strong>Delete</strong>.</li>
+<li>Confirm your actions.</li>
+</ol></li>
+<li>Delete the IAM roles and policies.
+<ol type="1">
+<li>Open the IAM console.</li>
+<li>In the navigation pane, choose <strong>Roles</strong>.</li>
+<li>Delete the following roles and confirm your actions:
+<ul>
+<li><strong>APIGateway-SQS</strong></li>
+<li><strong>Lambda-SQS-DynamoDB</strong></li>
+<li><strong>Lambda-DynamoDBStreams-SNS</strong></li>
+</ul></li>
+<li>In the navigation pane, choose <strong>Policies</strong>.</li>
+<li>Delete the following custom policies and confirm your actions:
+<ul>
+<li><strong>Lambda-DynamoDBStreams-Read</strong></li>
+<li><strong>Lambda-SNS-Publish</strong></li>
+<li><strong>Lambda-Write-DynamoDB</strong></li>
+<li><strong>Lambda-Read-SQS</strong></li>
+</ul></li>
+</ol></li>
+</ol>
+<p>Congratulations! You have successfully completed the exercise.</p>
+<script>
+document.body.innerHTML = document.body.innerHTML.replace(/RELATIVE(.+)RELATIVE/g, function (match, capture) {
+  let tmp = document.createElement("DIV");
+  tmp.innerHTML = capture;
+  return new URL(tmp.textContent || tmp.innerText || "", document.baseURI).href;
+});
+</script>
+</body>
+</html>
