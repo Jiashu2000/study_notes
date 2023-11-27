@@ -738,3 +738,6 @@ Caused by: scala.meta.internal.metals.debug.BuildTargetNotFoundForPathException:
 警告: Unmatched cancel notification for request id 1672
 2023.11.25 22:51:28 WARN  no build target for: /Users/jiashu/Documents/StudyNotes/spark/examples/scala_examples/src/main/create_schema.scala
 2023.11.25 22:51:37 WARN  no build target for: /Users/jiashu/Documents/StudyNotes/spark/examples/scala_examples/src/main/create_schema.scala
+2023.11.26 09:22:45 INFO  Shutting down server
+2023.11.26 09:22:45 INFO  shutting down Metals
+2023.11.26 09:22:45 INFO  Exiting server
