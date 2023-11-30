@@ -510,3 +510,588 @@ streamingQuery.awaitTermination()
 
 ## Data Transformations
 
+- only the DataFrame operations that can be executed incrementally are supported in Structured Streaming. These operations are broadly classified into stateless and stateful operations.
+
+#### Incremental Execution and Streaming State
+
+- Accordingly, instead of converting the logical plan to a one-time physical execution plan, the planner generates a continuous sequence of execution plans. Each execution plan updates the final result DataFrame incrementally—that is, the plan processes only a chunk of new data from the input streams and possibly some intermediate, partial result computed by the previous execution plan.
+
+- Each execution is considered as a micro-batch, and the partial intermediate result that is communicated between the executions is called the streaming “state".
+
+- DataFrame operations can be broadly classified into stateless and stateful operations based on whether executing the operation incrementally requires maintaining a state
+
+- Stateless Transformations
+
+    - All projection operations (e.g., select(), explode(), map(), flatMap()) and selection operations (e.g., filter(), where()) process each input record individually without needing any information from previous rows.
+
+    - A streaming query having only stateless operations supports the append and update output modes, but not complete mode. since any processed output row of such a query cannot be modified by any future data, it can be written out to all streaming sinks in append mode (including append-only ones, like files of any format). On the other hand, such queries naturally do not combine information across input records, and therefore may not reduce the volume of the data in the result. Complete mode is not supported because storing the ever-growing result data is usually costly.
+
+- Stateful Transformations
+
+    - The simplest example of a stateful transformation is count(), DataFrame.groupBy(). which generates a running count of the number of records received since the beginning of the query
+
+    - This state is maintained in the memory of the Spark executors and is checkpointed to the configured location in order to tolerate failures.
+
+    - Distributed and fault-tolerant state management
+
+        a Spark application running in a cluster has a driver and one or more executors. Spark’s scheduler running in the driver breaks down your high-level operations into smaller tasks and puts them in task queues, and as resources become available, the executors pull the tasks from the queues to execute them.
+
+        Each micro-batch in a streaming query essentially performs one such set of tasks that read new data from streaming sources and write updated output to streaming sinks. For stateful stream processing queries, besides writing to sinks, each micro-batch of tasks generates intermediate state data which will be consumed by the
+        next micro-batch.
+
+        This state data generation is completely partitioned and distributed (as all reading, writing, and processing is in Spark), and it is cached in the executor memory for efficient consumption.
+
+    - <img src = "pics/ch8/distributed_state_management.png">
+
+        However, it is not sufficient to just keep this state in memory, as any failure (either of an executor or of the entire application) will cause the in-memory state to be lost. To avoid loss, we synchronously save the key/value state update as change logs in the checkpoint location provided by the user.
+
+        In case of any failure, Structured Streaming is able to re-execute the failed micro-batch by reprocessing the same input data along with the same state that it had before that micro-batch.
+
+        To summarize, for all stateful operations, Structured Streaming ensures the correctness of the operation by automatically saving and restoring the state in a distributed manner. Depending on the stateful operation, all you may have to do is tune the state cleanup policy such that old keys and values can be automatically dropped from the cached state.
+    
+    - Types of stateful operations
+
+        The essence of streaming state is to retain summaries of past data. Sometimes old summaries need to be cleaned up from the state to make room for new summaries. Based on how this is done, we can distinguish two types of stateful operations:
+
+        1. Managed stateful operations
+            These automatically identify and clean up old state, based on an operation-specific definition of “old.” The operations that fall into this category are those for:
+                - Streaming aggregations
+                - Stream–stream joins
+                - Streaming deduplication
+    
+        2. Unmanaged stateful operations
+            These operations let you define your own custom state cleanup logic. The operations in this category are:
+                - MapGroupsWithState
+                - FlatMapGroupsWithState
+
+## Stateful Streaming Aggregations
+
+#### Aggregations Not Based on Time
+
+- Aggregations not involving time can be broadly classified into two categories:
+
+- Global aggregations
+
+    Aggregations across all the data in the stream. For example, say you have a stream of sensor readings as a streaming DataFrame named sensorReadings. You can calculate the running count of the total number of readings received with the following query:
+
+    ```scala
+    val running_count = sensorReadings.groupBy().count()
+    ```
+
+    You cannot use direct aggregation operations like Frame.count() and Dataset.reduce() on streaming DataFrames. This is because, for static DataFrames, these operations immediately return the final computed aggregates, whereas for streaming DataFrames the aggregates have to be continuously updated. Therefore, you have to always use DataFrame.groupBy() or Dataset.groupByKey() for aggregations on streaming DataFrames.
+
+- Grouped aggregations
+
+    Aggregations within each group or key present in the data stream. For example, if sensorReadings contains data from multiple sensors, you can calculate the running
+    average reading of each sensor
+
+    ```scala
+    val baselineValues = sensorReadings.groupBy("sensorId").mean("value")
+    ```
+
+    Besides counts and averages, streaming DataFrames support the following types of aggregations (similar to batch DataFrames):
+
+    - All built-in aggregation functions
+
+        sum(), mean(), stddev(), countDistinct(), collect_set(),approx_count_distinct()
+
+    - Multiple aggregations computed together
+
+    ```scala
+    import org.apache.spark.sql.functions.*
+
+    val multipleAggs = sensorReadings
+        .groupBy("sensorId")
+        .agg(
+            count("*"), mean("value").alias("baselineValue"),
+            collect_set("errorCode").alias("allErrorCodes")
+        )
+    ```
+
+    - User-defined aggregation functions
+
+        All user-defined aggregation functions are supported.
+
+#### Aggregations with Event-Time Windows
+
+- In many cases, rather than running aggregations over the whole stream, you want aggregations over data bucketed by time windows.
+
+- Continuing with our sensor example, say each sensor is expected to send at most one reading per minute and we want to detect if any sensor is reporting an unusually high number of times
+
+- for robustness, we should be computing the time interval based on when the data was generated at the sensor and not based on when the data was received, as any transit delay would skew the results. we want to use the event time—that is, the timestamp in the record representing when the reading was generated
+
+```scala
+import org.apache.spark.sql.functions.*
+
+sensorReadings
+    .groupBy("sensorId", window("eventTime", "5 minute"))
+    .count()
+```
+
+- The key thing to note here is the window() function, which allows us to express the five-minute windows as a dynamically computed grouping column.
+
+    - Use the eventTime value to compute the five-minute time window the sensor reading falls into.
+    - Group the reading based on the composite group (<computed window>, SensorId).
+    - Update the count of the composite group.
+
+- <img src = "pics/ch8/tumbling_windows.png">
+
+- if you want to compute counts corresponding to 10-minute windows sliding every 5 minutes, then you can do the following:
+
+```scala
+sensorReadings
+    .groupBy("sensorId", window("eventTime", "10 minute", "5 minute"))
+    .count()
+```
+
+- <img src = "pics/ch8/overlapping_windows.png">
+
+- As the event time moves forward, new groups are automatically created and their aggregates are automatically updated. Late and out-of-order events get handled automatically, as they simply update older groups.
+
+- <img src = "pics/ch8/updated_count.png">
+
+- However, from the point of view of resource usage, this poses a different problem—indefinitely growing state size. As new groups are created corresponding to the latest time windows, the older groups continue to occupy the state memory, waiting for any late data to update them. To provide a lateness bound to a query (and prevent unbounded state), you can specify watermarks
+
+- Handling late data with watermarks
+
+    - A watermark is defined as a moving threshold in event time that trails behind the maximum event time seen by the query in the processed data. The trailing gap, known as the watermark delay, defines how long the engine will wait for late data to arrive.
+
+    - For example, suppose you know that your sensor data will not be late by more than 10 minutes.
+
+    ```scala
+    sensorReadings
+        .withWatermark("eventTime", "10 minutes")
+        .groupBy("sensorId", window("eventTime", "10 minutes", "5 minutes"))
+        .mean("value")
+    ```
+
+    - Note that you must call withWatermark() before the groupBy() and on the same timestamp column as that used to define windows. When this query is executed, Structured Streaming will continuously track the maximum observed value of the eventTime column and accordingly update the watermark, filter the “too late” data, and clear old state.
+
+    - That is, any data late by more than 10 minutes will be ignored, and all time windows that are more than 10 minutes older than the latest (by event time) input data will be cleaned up from the state. To clarify how this query will be executed.
+
+- <img src = "pics/ch8/watermark_update.png">
+
+- Semantic guarantees with watermarks.
+
+    - A watermark of 10 minutes guarantees that the engine will never drop any data that is delayed by less than 10 minutes compared to the latest event time seen in the input data.
+
+- Supported output modes
+
+    - Update mode
+
+    In this mode, every micro-batch will output only the rows where the aggregate got updated. This mode can be used with all types of aggregations. Specifically for time window aggregations, watermarking will ensure that the state will get cleaned up regularly. This is the most useful and efficient mode to run queries with streaming aggregations.
+
+    However, you cannot use this mode to write aggregates to append-only streaming sinks, such as any file-based formats like Parquet and ORC (unless you use Delta Lake, which we will discuss in the next chapter).
+
+    - Complete mode
+
+    In this mode, every micro-batch will output all the updated aggregates, irrespective of their age or whether they contain changes. While this mode can be used on all types of aggregations, for time window aggregations, using complete mode means state will not be cleaned up even if a watermark is specified.
+
+    - Append mode
+
+    This mode can be used only with aggregations on event-time windows and with watermarking enabled.
+
+    Recall that append mode does not allow previously output results to change.
+
+    Instead of outputting the updated rows, append mode outputs each key and its final aggregate value only when the watermark ensures that the aggregate is not going to be updated again.
+
+    The advantage of this mode is that it allows you to write aggregates to append-only streaming sinks (e.g., files). The disadvantage is that the output will be delayed by the watermark duration—the query has to wait for the trailing watermark to exceed the time window of a key before its aggregate can be finalized.
+
+## Streaming Joins
+
+- Structured Streaming supports joining a streaming Dataset with another static or streaming Dataset.
+
+#### Stream-Static Joins
+
+- Many use cases require joining a data stream with a static Dataset
+
+- For example, let’ consider the case of ad monetization. Suppose you are an advertisement company that shows ads on websites and you make money when users click on them. Let’ assume that you have a static Dataset of all the ads to be shown. and another stream of events for each time users click on the displayed ads. To calculate the click revenue, you have to match each click in the event stream to the corresponding ad impression in the table.
+
+```scala
+// Static DataFrame [adId: String, impressionTime: Timestamp, ...]
+// reading from your static data source
+val impressionsStatic = spark.read....
+
+// Streaming DataFrame [adId: String, clickTime: Timestamp, ...]
+// reading from your streaming source
+val clicksStream = spark.readStream...
+
+val matched = clicksStream.join(impressionsStatic, "adId")
+```
+
+- When this code is executed, every micro-batch of clicks is inner-joined against the static impression table to generate the output stream of matched events.
+
+- Besides inner joins, Structured Streaming also supports two types of stream–static outer joins:
+
+    - Left outer join when the left side is a streaming DataFrame
+    - Right outer join when the right side is a streaming DataFrame
+
+    ```scala
+    val matched = clicksStream.join(impressionsStatic, Seq("adId"), "leftOuter")
+    ```
+- Stream–static joins are stateless operations, and therefore do not require any kind of watermarking.
+
+- The static DataFrame is read repeatedly while joining with the streaming data of every micro-batch, so you can cache the static DataFrame to speed up the reads.
+
+- If the underlying data in the data source on which the static DataFrame was defined changes, whether those changes are seen by the streaming query depends on the specific behavior of the data source.
+
+#### Stream-Stream Joins
+
+- The challenge of generating joins between two data streams is that, at any point in time, the view of either Dataset is incomplete, making it much harder to find matches between inputs. The matching events from the two streams may arrive in any order and may be arbitrarily delayed. For example, in our advertising use case an impression event and its corresponding click event may arrive out of order, with arbitrary delays between them. Structured Streaming accounts for such delays by buffering the input data from both sides as the streaming state, and continuously checking for matches as new data is received
+
+- <img src = "pics/ch8/ad_mone_eg.png"> 
+
+#### Inner joins with optional watermarking
+
+```scala
+val impressions = spark.readStream...
+val clicks = spark.readStream...
+
+val matched = impressions.join(clicks, "adId")
+```
+
+- When this query is executed, the processing engine will recognize it to be a stream–stream join instead of a stream–static join. The engine will buffer all clicks and impressions as state, and will generate a matching impression-and-click as soon as a received click matches a buffered impression (or vice versa, depending on which was received first).
+
+- <img src = "pics/ch8/stream_stream_join.png">
+
+- we have not given any indication of how long the engine should buffer an event to find a match. Therefore, the engine may buffer an event forever and accumulate an unbounded amount of streaming state. To limit the streaming state maintained by stream.stream joins, you need to know the following information about your use case:
+
+    - **_What is the maximum time range between the generation of the two events at their respective sources?_** 
+
+    In the context of our use case, let’s assume that a click can occur within zero seconds to one hour after the corresponding impression. 
+    
+    - **_What is the maximum duration an event can be delayed in transit between the source and the processing engine?_**
+
+    For example, ad clicks from a browser may get delayed due to intermittent connectivity and arrive much later than expected, and out of order. Let’s say that impressions and clicks can be delayed by at most two and three hours, respectively.
+
+- These delay limits and event-time constraints can be encoded in the DataFrame operations using watermarks and time range conditions
+
+    1. Define watermark delays on both inputs, such that the engine knows how delayed the input can be (similar to with streaming aggregations).
+
+    2. Define a constraint on event time across the two inputs, such that the engine can figure out when old rows of one input are not going to be required (i.e., will not satisfy the time constraint) for matches with the other input. This constraint can be defined in one of the following ways:
+
+        a. Time range join conditions (e.g., join condition = "leftTime BETWEEN rightTime AND rightTime + INTERVAL 1 HOUR")
+
+        b. Join on event-time windows (e.g., join condition =
+        "leftTimeWindow=rightTimeWindow")
+    
+    ```scala
+    val impressionsWithWatermark = impressions
+        .selectExpr("adId as impressionAdId", "impressionTime")
+        .withWatermark("impressionTime", "2 hours")
+    
+    val clicksWithWatermark = clicks
+        .selectExpr("adId as clickAdId", "clickTime")
+        .withWatermark("clickTime", "3 hours")
+    
+    impressionWithWatermark.join(clicksWithWatermark, 
+    expr("""
+        clickAdId = impressionAdId and
+        clickTime between impressionTime and impressionTime + interval 1 hour"""))
+    ```
+
+- With these time constraints for each event, the processing engine can automatically calculate how long events need to be buffered to generate correct results, and when the events can be dropped from the state
+
+- Impressions need to be buffered for at most four hours (in event time), as a three-hour-late click may match with an impression made four hours ago (i.e., three hours late + up to one-hour delay between the impression and click).
+
+- Conversely, clicks need to be buffered for at most two hours (in event time), as a two-hour-late impression may match with a click received two hours ago.
+
+- <img src = "pics/ch8/join_buffer.png">
+
+- For inner joins, specifying watermarking and event-time constraints are both optional. In other words, at the risk of potentially unbounded state, you may choose not to specify them. Only when both are specified will you get state cleanup.
+
+- Similar to the guarantees provided by watermarking on aggregations, a watermark delay of two hours guarantees that the engine will never drop or not match any data that is less than two hours delayed, but data delayed by more than two hours may or may not get processed.
+
+#### Outer joins with watermarking
+
+- In other words, ads that received no clicks will not be reported at all. Instead, you may want all ad impressions to be reported, with or without the associated click data, to enable additional analysis later (e.g., click-through rates). This brings us to stream–stream outer joins.
+
+```scala
+impressionsWithWatermark.join(clicksWithWatermark,
+    expr("""
+    clickAdId = impressionAdId and
+    clickTime between impressionTime and impressionTime + interval 1 hour"""), "leftOuter"
+)
+```
+
+- Unlike with inner joins, the watermark delay and event-time constraints are not optional for outer joins. This is because for generating the NULL results, the engine must know when an event is not going to match with anything else in the future. For correct outer join results and state cleanup, the watermarking and event-time constraints must be specified.
+
+## Arbitrary Stateful Computations
+
+- Many use cases require more complicated logic than the SQL operations we have discussed up to now. For example, say you want to track the statuses (e.g., signed in,busy, idle) of users by tracking their activities (e.g., clicks) in real time. To build this stream processing pipeline, you will have to track each user’s activity history as a state with arbitrary data structure, and continuously apply arbitrarily complex changes on the data structure based on the user’s actions
+
+- we will start with a simple example with mapGroupsWithState() to illustrate the four key steps to modeling custom state data and defining custom operations on it.
+
+
+#### Modeling Arbitrary Stateful Operations with mapGroupsWithState()
+
+- State with an arbitrary schema and arbitrary transformations on the state is modeled as a user-defined function that takes the previous version of the state value and new data as inputs, and generates the updated state and computed result as outputs
+
+```scala
+def arbitraryStateUpdateFunction ( 
+    key: K,
+    newDataForKey: Iterator[V],
+    previousStateForKey: GroupState[S]
+): U
+
+val inputDataset: Dataset[V]
+
+inputDataset
+    .groupByKey(keyFunction) // keyFunction generates key from input
+    .mapGroupsWithState(arbitraryStateUpdateFunction)
+```
+- key: K
+
+    K is the data type of the common keys defined in the state and the input. Spark will call this function for each unique key in the data.
+
+- newDataForKey: Iterator[V]
+
+    V is the data type of the input Dataset. When Spark calls this function for a key, this parameter will have all the new input data corresponding to that key. Note that the order in which the input data objects will be present in the iterator is not defined.
+
+- previousStateForKey: GroupState[S]
+
+    S is the data type of the arbitrary state you are going to maintain, and Group State[S] is a typed wrapper object that provides methods to access and manage the state value. When Spark calls this function for a key, this object will provide the state value set the previous time Spark called this function for that key (i.e., for one of the previous micro-batches).
+
+- in every micro-batch, for each active user, we will use the new actions taken by the user and update the user’s “status.”
+
+    1. Define the data types. 
+    
+        We need to define the exact types of K, V, S, and U. 
+        In this case, we’ll use the following:
+
+        - Input data (V) = case class UserAction(userId: String, action: String)
+        - Keys (K) = String (that is, the userId)
+        - State (S) = case class UserStatus(userId: String, active: Boolean)
+        - Output (U) = UserStatus, as we want to output the latest user status
+    
+    2. Define the function. 
+    
+        Based on the chosen types, let’s translate the conceptual idea into code. When this function is called with new user actions, there are two main situations we need to handle: whether a previous state (i.e., previous user status) exists for that key (i.e., userId) or not. Accordingly, we will initialize the user’s status, or update the existing status with the new actions.
+
+    ```scala
+    import org.apache.spark.sql.streaming._
+
+    def updateUserStatus (
+        userId: String,
+        newActions: Iterator[UserAction],
+        state: GroupState[UserStatus]: UserStatus = {
+            
+            val userStatus = state.getOption.getOrElse {
+                new UserStatus(userId, false)
+            }
+            newActions.foreach{ action =>
+                userStatus.updateWith(action)
+            }
+            state.update(userStatus)
+            return userStatus
+        }
+    )
+    ```
+
+    3. Apply the function on the actions. 
+    
+        We will group the input actions Dataset using groupByKey() and then apply the updateUserStatus function using mapGroupsWithState():
+    
+    ```scala
+    val userActions = Dataset[UserAction] = ...
+    val latestStatues = userActions
+        .groupByKey(userAction => userAction.userId)
+        .mapGroupsWithState(updateUserStatus_)
+    ```
+
+- When the function is called, there is no well-defined order for the input records in the new data iterator (e.g., newActions).
+
+- In a micro-batch, the function is called on a key once only if the micro-batch has data for that key.
+
+- The output of is assumed by the incremental processing mapGroupsWithState() engine to be continuously updated key/value records, similar to the output of aggregations.
+
+
+#### Using Timeouts to Manage Inactive Groups
+
+- Now, in a real-world scenario, users are likely not going to stay active all the time. It may not be very useful to keep the status of inactive users in the state, as it is not going to change again until those users become active again. Hence, we may want to explicitly drop all information for inactive users. However, a user may not explicitly take any action to become inactive (e.g., explicitly logging off), and we may have to define inactivity as lack of any action for a threshold duration.
+
+- To encode time-based inactivity, mapGroupsWithState() supports timeouts that are defined as follows:
+
+    - Each time the function is called on a key, a timeout can be set on the key based on a duration or a threshold timestamp.
+
+    - If that key does not receive any data, such that the timeout condition is met, the key is marked as “timed out.” The next micro-batch will call the function on this timed-out key even if there is no data for that key in that micro-batch. In this special function call, the new input data iterator will be empty (since there is no new data) and GroupState.hasTimedOut() will return true. This is the best way to identify inside the function whether the call was due to new data or a timeout.
+
+- There are two types of timeouts, based on our two notions of time: processing time and event time
+
+    - Processing-time timeouts
+
+        Processing-time timeouts are based on the system time (also known as the wall clock time) of the machine running the streaming query and are defined as follows: if a key last received data at system timestamp T, and the current timestamp is more than (T + <timeout duration>), then the function will be called again with a new empty data iterator.
+
+        - In mapGroupsWithState(), we will specify the timeout as GroupStateTimeout.ProcessingTimeTimeout.
+
+        - In the state update function, before updating the state with new data, we have to check whether the state has timed out or not. Accordingly, we will update or remove the state.
+
+        - In addition, every time we update the state with new data, we will set the timeout duration.
+
+    ```scala
+    def updateUserState(
+        userId: String,
+        newActions: Iterator[UserAction],
+        state: GroupState[UserStatus]): UserStatus = {
+            
+            if (!state.hasTimeOut) {
+                val userStatus = state.getOption.getOrElse{
+                    new UserStatus(userId, false)
+                }
+                newActions.foreach {action => userStatus.updateWith(action)}
+                state.update(userStatus)
+                state.setTimeoutDuration("1 hour")
+                return userStatus
+            } else {
+                val userStatus = state.get() 
+                state.remove()
+                return userStatus.asInactive()
+            }
+        }
+        
+        val latestStatuses = userActions
+            .groupByKey(userAction => userActions.userId)
+            .mapGroupsWithState(
+                GroupStateTimeout.ProcessingTimeTimeout)(
+                    updateUserStatus_
+            )
+    ```
+
+    - The timeout set by the last call to the function is automatically cancelled when the function is called again, either for the new received data or for the timeout
+
+    - Since the timeouts are processed during the micro-batches, the timing of their execution is imprecise and depends heavily on the trigger interval and micro-batch processing times. Therefore, it is not advised to use timeouts for precise timing control.
+
+    - While processing-time timeouts are simple to reason about, they are not robust to slowdowns and downtimes.
+
+- Event-time timeouts
+
+    - Define watermarks on the input Dataset (assume that the class UserAction has an eventTimestamp field). Recall that the watermark threshold represents the acceptable amount of time by which input data can be late and out of order.
+
+    - Update mapGroupsWithState() to use EventTimeTimeout.
+    
+    - Update the function to set the threshold timestamp at which the timeout will occur. Note that event-time timeouts do not allow setting a timeout duration, like processing-time timeouts.
+
+    ```scala
+    // In Scala
+    def updateUserStatus(
+        userId: String,
+        newActions: Iterator[UserAction],
+        state: GroupState[UserStatus]):UserStatus = {
+
+        if (!state.hasTimedOut) { // Was not called due to timeout
+            val userStatus = if (state.getOption.getOrElse {
+                new UserStatus()
+            }
+            newActions.foreach { action => userStatus.updateWith(action) }
+            state.update(userStatus)
+
+            // Set the timeout timestamp to the current watermark + 1 hour
+            state.setTimeoutTimestamp(state.getCurrentWatermarkMs, "1 hour")
+            return userStatus
+        } else {
+            val userStatus = state.get()
+            state.remove()
+            return userStatus.asInactive() }
+    }
+
+    val latestStatuses = userActions
+        .withWatermark("eventTimestamp", "10 minutes")
+        .groupByKey(userAction => userAction.userId)
+        .mapGroupsWithState(
+        GroupStateTimeout.EventTimeTimeout)(
+        updateUserStatus _)
+    
+    ```
+
+    - Unlike in the previous example with processing-time timeouts, we have used GroupState.setTimeoutTimestamp() instead of GroupState.setTimeoutDuration().
+
+    - The timeout timestamp must be set to a value larger than the current watermark. This is because the timeout is expected to happen when the timestamp crosses the watermark.
+
+
+#### Generalization with flatMapGroupsWithState()
+
+- There are two key limitations with mapGroupsWithState() that may limit the flexibility that we want to implement more complex use cases (e.g., chained sessionizations):
+
+    - Every time mapGroupsWithState() is called, you have to return one and only one record. For some applications, in some triggers, you may not want to output any thing at all.
+
+    - With mapGroupsWithState(), due to the lack of more information about the opaque state update function, the engine assumes that generated records are updated key/value data pairs. For example, the DataFrame generated using mapGroupsWithState() cannot be written out in append mode to files.
+
+- flatMapGroupsWithState() overcomes these limitations, at the cost of slightly more complex syntax. It has two differences from mapGroupsWithState():
+    - The return type is an iterator, instead of a single object. This allows the function to return any number of records, or, if needed, no records at all.
+    - It takes another parameter, called the operator output mode (not to be confused with the query output modes we discussed earlier in the chapter), that defines whether the output records are new records that can be appended (Output Mode.Append) or updated key/value records (OutputMode.Update).
+
+- if we want to generate alerts only for certain user changes and we want to write the output alerts to files
+
+```scala
+def getUserAlerts(
+    userId: String,
+    newActions: Iterator[UserAction],
+    state: GroupState[UserStatus]): Iterator[UserAlert] = {
+    
+    val userStatus = state.getOption.getOrElse {
+        new UserStatus(userId, false)
+    }
+    newActions.foreach { action =>
+        userStatus.updateWith(action)
+    }
+    state.update(userStatus)
+
+    // Generate any number of alerts
+    return userStatus.generateAlerts().toIterator
+}
+
+    val userAlerts = userActions
+        .groupByKey(userAction => userAction.userId)
+        .flatMapGroupsWithState(
+            OutputMode.Append,
+            GroupStateTimeout.NoTimeout)(
+        getUserAlerts)
+```
+
+## Performance Tuning
+
+#### Cluster resource provisioning
+
+- Underprovisoning the resources can cause the streaming queries to fall behind (with micro-batches taking longer and longer), while overprovisioning (e.g., allocated but unused cores) can cause unnecessary costs.
+
+- stateless queries usually need more cores, and stateful queries usually need more memory.
+
+#### Number of partitions for shuffl
+
+- the number of shuffle partitions usually needs to be set much lower than for most batch queries—dividing the computation too much increases overheads and reduces throughput. shuffles due to stateful operations have significantly higher task overheads due to checkpointing.
+
+- it is recommended to tune the number of shuffle partitions from the default value of 200 to at most two to three times the number of allocated cores
+
+
+#### Setting source rate limits for stability
+
+- Besides the costly approach of overprovisioning, you can safeguard against instability using source rate limits
+
+- Setting limits in supported sources (e.g., Kafka and files) prevents a query from consuming too much data in a single micro-batch.
+
+#### Multiple streaming queries in the same Spark application
+
+- Executing each query continuously uses resources in the Spark driver (i.e., the JVM where it is running). This limits the number of queries that the driver can execute simultaneously.
+
+- You can ensure fairer resource allocation between queries in the same context by setting them to run in separate scheduler pools
+
+```scala
+spark.sparkContext.setLocalProperty("spark.scheduler.pool", "pool1")
+df.writeStream.queryName("query1").format("parquet").start(path1)
+
+spark.sparkContext.setLocalProperty("spark.scheduler.pool", "pool2")
+df.writeStream.queryName("query2").format("parquet").start(path2)
+```
+
+## Summary
+This chapter explored writing Structured Streaming queries using the DataFrame API. Specifically, we discussed:
+
+- The central philosophy of Structured Streaming and the processing model of treating input data streams as unbounded tables
+
+- The key steps to define, start, restart, and monitor streaming queries
+
+- How to use various built-in streaming sources and sinks and write custom streaming sinks
+
+- How to use and tune managed stateful operations like streaming aggregations and stream–stream joins
+
+- Techniques for expressing custom stateful computations
