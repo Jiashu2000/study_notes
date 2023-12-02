@@ -1,0 +1,15 @@
+artifact_uri: file:///Users/jiashu/Documents/StudyNotes/spark/examples/mlruns/0/64ef2a5793864d8bb65a3c519164bf72/artifacts
+end_time: 1701529544164
+entry_point_name: ''
+experiment_id: '0'
+lifecycle_stage: active
+run_id: 64ef2a5793864d8bb65a3c519164bf72
+run_name: random-forest
+run_uuid: 64ef2a5793864d8bb65a3c519164bf72
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1701529540159
+status: 4
+tags: []
+user_id: jiashu
