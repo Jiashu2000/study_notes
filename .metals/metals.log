@@ -741,3 +741,8 @@ Caused by: scala.meta.internal.metals.debug.BuildTargetNotFoundForPathException:
 2023.11.26 09:22:45 INFO  Shutting down server
 2023.11.26 09:22:45 INFO  shutting down Metals
 2023.11.26 09:22:45 INFO  Exiting server
+2023.12.05 07:47:49 INFO  Started: Metals version 1.1.0 in folders '/Users/jiashu/Documents/StudyNotes' for client Visual Studio Code 1.84.2.
+2023.12.05 07:47:50 WARN  Build server is not auto-connectable.
+2023.12.05 07:47:50 WARN  no build tool detected in workspace '/Users/jiashu/Documents/StudyNotes'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
+十二月 05, 2023 7:50:04 上午 org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+信息: Unsupported notification method: $/setTrace

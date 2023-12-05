@@ -103,4 +103,117 @@ daily_bikes.shape, daily_bikes.stride()
 
 - Networks operate on text at two levels: at character level, by processing one character at a time, and at word level, in which individual words are the finest-grained entities seen by the network.
 
-- 
+#### One hoting encoding
+
+- Encoding: Every written character is represented by a code, a sequence of bits of appropriate length that allow each character to be uniquely identified.
+
+- You could also make all characters lowercase to reduce the number of characters in your encoding. Similarly, you could screen out punctuation, numbers, and other characters that are not relevant to the expected kinds of text, which may or may not make a practical difference to your neural network, depending on the task at hand.
+
+- Each character will be represented by a vector of length equal to the number of characters in the encoding. is vector will contain all zeros except for a 1 at the index corresponding to the location of the character in the encoding.
+
+#### Text embeddings
+
+- Well, instead of using vectors of many zeros and a single 1, you could use vectors of floating-point numbers. A vector of, say, 100 floating-point numbers can indeed represent a large number of words. The trick is to find an effective way to map individual words to this 100-dimensional space in a way that facilitates downstream learning. This technique is called embedding.
+
+- An ideal solution would be to generate the embedding in such a way that words used in similar contexts map to nearby regions of the embedding.
+
+## Image
+
+- The introduction of convolutional neural networks revolutionized computer vision
+
+- An image is represented as a collection of scalars arranged in a regular grid, having a height and a width (in pixels). You might have a single scalar per grid point (the pixel), which would be represented as a grayscale image, or multiple scalars per grid point, which typically represent different colors or different features, such as depth from a depth camera.
+
+- You have several ways of encoding numbers into colors. The most common is RGB, which defines a color with three numbers that represent the intensity of red, green and blue.
+
+- <img src = "pics/ch3/image.png" height = 200>
+
+- At this point, img is a NumPy array-like object with three dimensions: two spatial dimensions (width and height) and a third dimension corresponding to the channels red, green, and blue.
+
+- The only thing to watch out for is the layout of dimensions. PyTorch modules that deal with image data require tensors to be laid out as C x H x W (channels, height, and width, respectively).
+
+- to create a data set of multiple images to use as an input for your neural networks, you store the images in a batch along the first dimension to obtain a tensor. N x C x H x W
+
+```python
+
+batch_size = 4
+batch = torch.zeros(4, 3, 1080, 1920, dtype = torch.uint8)
+
+import os
+data_dir = "data/cats/"
+filenames = [name for name in os.listdir(data_dir) if os.path.splitext(name)[-1] == '.jpg']
+
+for i, filename in enumerate(filenames):
+    img_arr = imageio.imread(data_dir + filename)
+    batch[i] = torch.transpose(torch.from_numpy(img_arr), 0, 2)
+
+```
+
+- neural networks exhibit the best training performance when input data ranges from roughly 0 to 1 or 1 to 1 (an effect of how their building blocks are defined)
+
+- Casting to floating-point is easy, but normalization is trickier, as it depends on what range of the input you decide should lie between 0 and 1 (or –1 and 1). One possibility is to divide the values of pixels by 255 (the maximum representable number in 8-bit unsigned):
+
+```python
+batch = batch.float()
+batch /= 255
+```
+
+- Another possibility is to compute mean and standard deviation of the input data and scale it so that the output has zero mean and unit standard deviation across each channel:
+
+```python
+n_channels = batch.shape[1]
+for c in range(n_channels):
+    mean = torch.mean(batch[:, c])
+    std = torch.std(batch[:, c])
+    batch[:, c] = (batch[:, c] - mean)/std
+```
+
+## Volumetric data
+
+- In contexts such as medical imaging applications involving, say, CT (Computed Tomography) scans, you typically deal with sequences of images stacked along the head-to-feet direction, each corresponding to a slice across the body.
+
+- By stacking individual 2D slices into a 3D tensor, you can build volumetric data representing the 3D anatomy of a subject.
+
+- <img src = 'pics/ch3/volumetric.png' height = 200>
+
+- it suffices to say that no fundamental difference exists between a tensor that stores volumetric data and one that stores image data. You have an extra dimension, depth, after the channel dimension, leading to a 5D tensor of shape N x C x D x H x W.
+
+```python
+import imageio
+
+dir_path = "../data/p1ch4/volumetric-dicom/2-LUNG 3.0 B70f-04083"
+vol_arr = imageio.volread(dir_path, "DICOM")
+vol_arr.shape
+
+# Out[2]:
+(99, 512, 512)
+
+# due to the lack of channel information. You’ll have to make room for the channel dimension by using unsqueeze:
+
+vol = torch.from_numpy(vol_arr)
+vol = torch.transpose(vol, 0, 2)
+vol = torch.unsqueeze(vol, 0)
+
+vol.shape
+# Out[3]:
+torch.Size([1, 512, 512, 99])
+```
+
+## Summary
+
+- Neural networks require data to be represented as multidimensional numerical tensors, often 32-bit floating-point.
+
+- Thanks to how the PyTorch libraries interact with the Python standard library and surrounding ecosystem, loading the most common types of data and converting them to PyTorch tensors is convenient.
+
+- In general, PyTorch expects data to be laid out along specific dimensions, according to the model architecture (such as convolutional versus recurrent). Data reshaping can be achieved effectively with the PyTorch tensor API.
+
+- Spreadsheets can be straightforward to convert to tensors. Categorical- and ordinal- valued columns should be handled differently from interval-valued columns.
+
+- Text or categorical data can be encoded to a one-hot representation through the use of dictionaries.
+
+- Images can have one or many channels. The most common are the red, green, and blue channels of typical digital photos.
+
+- Single-channel data formats sometimes omit an explicit channel dimension.
+
+- Volumetric data is similar to 2D image data, with the exception of adding a third dimension: depth.
+
+- Many images have a per-channel bit depth of 8, though 12 and 16 bits per channel are not uncommon. These bit-depths can be stored in a 32-bit floating-point number without loss of precision.
