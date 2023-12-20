@@ -26,7 +26,7 @@ Hadoop has these 4 main components that work together to provide a powerful plat
 
     In HDFS, all blocks consist of the same size except for the last block. An application can specify the number of replicas for a file and the default is 3. The replication factor can be specified at the time of creation and can be changed later on too. Out of the three copies, two copies are stored in different nodes in the same local area network. The third copy will be stored in a different local area network. The namenode is responsible for all the decisions related to block replication. It periodically receives a signal which dictates the health of each node, whether it is functioning properly or not.
 
-    <img src = '/Users/jiashu/Documents/InterviewPrep/DE/pics/hdfs_arch.webp'>
+    <img src = 'pics/hdfs_arch.webp'>
 
 - Yet Another Resource Negotiator (YARN): 
     
@@ -180,7 +180,7 @@ The two types of metadata that a NameNode server holds are:
 
     Hdfs federation with Hadoop 2 comes over this limitation by allowing the uses of more than one namenode and thus more than one namespace.
 
-    <img src = '/Users/jiashu/Documents/InterviewPrep/DE/pics/HDFS-Federation-Architecture.png'>
+    <img src = 'pics/HDFS-Federation-Architecture.png'>
 
     there are multiple namenode (NN1, NN2…NNn) and their multiple associated namespaces (NS1, NS2…NSn)
 
@@ -192,7 +192,7 @@ The two types of metadata that a NameNode server holds are:
 
 - High Availability
 
-<img src = '/Users/jiashu/Documents/InterviewPrep/DE/pics/High-Availability-Architecture.png'>
+<img src = 'pics/High-Availability-Architecture.png'>
 
 High availability simply means there should be more than one instance of any services or products. This is required because if one will go down also, there will be the backup available which can simply take that up.
 
